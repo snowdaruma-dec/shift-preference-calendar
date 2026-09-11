@@ -191,6 +191,26 @@ const db = getFirestore(firebaseApp);
 
   let dayStates = new Array(daysInMonth).fill("unset");
 
+  const nameInput = document.getElementById("nameInput");
+  const draftKey = "shiftDraft:" + groupId + ":" + monthTag;
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ name: nameInput.value, states: dayStates }));
+    } catch (e) {}
+  }
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.states) && d.states.length === daysInMonth) dayStates = d.states;
+      if (d && typeof d.name === "string") nameInput.value = d.name;
+    } catch (e) {}
+  }
+  loadDraft();
+
   function buildWeekdayRow(container) {
     container.innerHTML = "";
     WEEKDAYS.forEach((w, i) => {
@@ -221,13 +241,15 @@ const db = getFirestore(firebaseApp);
         const idx = STATES.indexOf(dayStates[d - 1]);
         dayStates[d - 1] = STATES[(idx + 1) % STATES.length];
         render();
+        saveDraft();
       });
       grid.appendChild(cell);
     }
   }
   render();
 
-  const nameInput = document.getElementById("nameInput");
+  nameInput.addEventListener("input", saveDraft);
+
   const msg = document.getElementById("inputMsg");
   const outputBox = document.getElementById("outputBox");
   const submitText = document.getElementById("submitText");
@@ -278,6 +300,7 @@ const db = getFirestore(firebaseApp);
     render();
     outputBox.classList.add("hidden");
     setMsg(msg, "入力をリセットしました。");
+    try { localStorage.removeItem(draftKey); } catch (e) {}
   });
 
   document.getElementById("copyBtn").addEventListener("click", async () => {
