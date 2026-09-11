@@ -74,10 +74,7 @@
   .output-box textarea { width: 100%; font-family: "Noto Sans JP", monospace; font-size: 13px; padding: 8px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); resize: vertical; min-height: 60px; }
   .copy-btn { margin-top: 8px; width: 100%; padding: 9px 0; font-size: 13px; font-weight: 600; background: var(--paid-off); color: #fff; border: none; border-radius: 3px; cursor: pointer; }
 
-  .paste-box { margin-bottom: 14px; }
-  .paste-box p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; margin: 0 0 8px; }
-  .paste-box textarea { width: 100%; font-family: "Noto Sans JP", monospace; font-size: 12.5px; padding: 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--off); color: var(--ink); resize: vertical; min-height: 90px; }
-  .apply-btn { margin-top: 8px; width: 100%; padding: 10px 0; font-size: 14px; font-weight: 600; background: var(--ink); color: var(--off); border: none; border-radius: 3px; cursor: pointer; }
+  .refresh-btn { margin-bottom: 12px; width: 100%; padding: 10px 0; font-size: 13.5px; font-weight: 600; background: var(--ink); color: var(--off); border: none; border-radius: 3px; cursor: pointer; }
 
   .list-cell { border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); padding: 3px 3px 4px; min-height: 50px; display: flex; flex-direction: column; gap: 1px; }
   .list-cell .daynum { font-size: 10px; color: var(--ink-soft); line-height: 1.4; }
@@ -93,7 +90,7 @@
   @media print {
     body { background: #fff; }
     .sheet { border: none; max-width: 100%; }
-    .tabs, .paste-box, .print-btn, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+    .tabs, .refresh-btn, .print-btn, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
   }
 </style>
 </head>
@@ -103,6 +100,7 @@
   <div class="sheet-head">
     <p class="title" id="pageTitle">来月の勤務希望</p>
     <p class="subtitle" id="monthLabel">読み込み中…</p>
+    <p class="subtitle" id="groupLabel"></p>
   </div>
 
   <div class="tabs">
@@ -127,38 +125,51 @@
     <div class="grid" id="calendarGrid"></div>
 
     <div class="actions">
-      <button class="btn primary" id="submitBtn">提出用の文章を作る</button>
+      <button class="btn primary" id="submitBtn">保存する</button>
       <button class="btn ghost" id="clearBtn">消去</button>
     </div>
     <div class="msg" id="inputMsg"></div>
 
     <div class="output-box hidden" id="outputBox">
-      <label>この文章をコピーしてグループLINEに貼り付けてください</label>
+      <label>保存した内容（念のためLINEにも貼り付けたい場合はこちらをコピーしてください）</label>
       <textarea id="submitText" rows="2" readonly></textarea>
       <button class="copy-btn" id="copyBtn">コピーする</button>
     </div>
 
     <div class="share">
-      日付をタップすると 公休→有休→出勤→未定 の順に切り替わります。「提出用の文章を作る」を押すとLINEに貼る用の文章ができます。このページのURLをグループLINEに共有すれば、全員が同じページから入力できます。
+      日付をタップすると 公休→有休→出勤→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでグループ全員分の希望が確認できます。
     </div>
   </div>
 
   <div class="panel hidden" id="panelList">
-    <div class="paste-box">
-      <p>LINEグループに貼られた提出文章を全員分コピーして、まとめてここに貼り付けてください（1人1行）。</p>
-      <textarea id="pasteInput" placeholder="田中 2026-10: 9出 14公 18公 23有 26公 29公&#10;佐藤 2026-10: 6公 12出"></textarea>
-      <button class="apply-btn" id="applyBtn">カレンダーに反映する</button>
-    </div>
+    <button class="refresh-btn" id="refreshListBtn">最新の状態に更新</button>
     <div class="msg" id="listMsg"></div>
     <button class="print-btn" id="printBtn">この一覧を印刷する</button>
     <div class="grid" id="listWeekdayRow"></div>
     <div class="grid" id="listCalendarGrid"></div>
-    <p class="empty-state" id="listEmptyState">まだ何も反映されていません。上に貼り付けて反映してください。</p>
+    <p class="empty-state" id="listEmptyState">まだ誰も入力していません。</p>
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDmY2HqcpJTV4CRND5g7tvO__ARxjUBpjM",
+  authDomain: "shift-preference-calendar.firebaseapp.com",
+  projectId: "shift-preference-calendar",
+  storageBucket: "shift-preference-calendar.firebasestorage.app",
+  messagingSenderId: "338269908753",
+  appId: "1:338269908753:web:e0ee666ee98d4189cf66b0"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
 (function() {
+  const params = new URLSearchParams(location.search);
+  const groupId = (params.get("g") || "common").trim();
+
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const year = next.getFullYear();
@@ -168,6 +179,9 @@
 
   document.getElementById("monthLabel").textContent = year + "年" + (month + 1) + "月分の希望";
   document.getElementById("pageTitle").textContent = (month + 1) + "月の勤務希望";
+  document.getElementById("groupLabel").textContent = "グループ: " + groupId;
+
+  const peopleCollection = collection(db, "groups", groupId, "months", monthTag, "people");
 
   const STATES = ["unset", "off", "paid", "work"];
   const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出" };
@@ -223,7 +237,7 @@
     el.className = "msg" + (kind ? " " + kind : "");
   }
 
-  document.getElementById("submitBtn").addEventListener("click", () => {
+  document.getElementById("submitBtn").addEventListener("click", async () => {
     const name = nameInput.value.trim();
     if (!name) {
       setMsg(msg, "名前を入力してください。", "err");
@@ -241,10 +255,22 @@
       outputBox.classList.add("hidden");
       return;
     }
-    const text = name + " " + monthTag + ": " + pairs.join(" ");
-    submitText.value = text;
-    outputBox.classList.remove("hidden");
-    setMsg(msg, "下の文章をコピーしてLINEグループに貼り付けてください。", "ok");
+    setMsg(msg, "保存しています…");
+    try {
+      const personDocId = encodeURIComponent(name);
+      await setDoc(doc(peopleCollection, personDocId), {
+        name: name,
+        states: dayStates,
+        updatedAt: serverTimestamp()
+      });
+      const text = name + " " + monthTag + ": " + pairs.join(" ");
+      submitText.value = text;
+      outputBox.classList.remove("hidden");
+      setMsg(msg, "保存しました。一覧タブでグループ全員分の希望が確認できます。", "ok");
+    } catch (e) {
+      setMsg(msg, "保存に失敗しました。通信環境を確認してもう一度お試しください。", "err");
+      outputBox.classList.add("hidden");
+    }
   });
 
   document.getElementById("clearBtn").addEventListener("click", () => {
@@ -292,42 +318,32 @@
     tabInput.classList.remove("active");
     panelList.classList.remove("hidden");
     panelInput.classList.add("hidden");
+    loadListFromFirestore();
   });
 
-  // List / paste-merge view
+  // List view (auto-loaded from Firestore, shared across the group)
   const listGrid = document.getElementById("listCalendarGrid");
   const listEmptyState = document.getElementById("listEmptyState");
   const listMsg = document.getElementById("listMsg");
-  const pasteInput = document.getElementById("pasteInput");
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function parseSubmissions(text) {
-    const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-    const lineRe = /^(\S+)\s+(\d{4})-(\d{2}):\s*(.+)$/;
-    const pairRe = /(\d{1,2})\s*(公|有|出)/g;
-    const entries = [];
-    let skipped = 0;
-    for (const line of lines) {
-      const m = line.match(lineRe);
-      if (!m) { skipped++; continue; }
-      const lineYear = parseInt(m[2], 10);
-      const lineMonth = parseInt(m[3], 10);
-      if (lineYear !== year || lineMonth !== (month + 1)) { skipped++; continue; }
-      const states = new Array(daysInMonth).fill("unset");
-      let pm;
-      pairRe.lastIndex = 0;
-      while ((pm = pairRe.exec(m[4])) !== null) {
-        const day = parseInt(pm[1], 10);
-        const mark = pm[2];
-        const state = mark === "公" ? "off" : mark === "有" ? "paid" : "work";
-        if (day >= 1 && day <= daysInMonth) states[day - 1] = state;
-      }
-      entries.push({ name: m[1], states: states });
+  async function loadListFromFirestore() {
+    setMsg(listMsg, "読み込み中…");
+    try {
+      const snap = await getDocs(peopleCollection);
+      const entries = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        entries.push({ name: data.name, states: data.states || [] });
+      });
+      renderListGrid(entries);
+      setMsg(listMsg, entries.length + "人分を表示しています。", "ok");
+    } catch (e) {
+      setMsg(listMsg, "読み込みに失敗しました。通信環境を確認してもう一度お試しください。", "err");
     }
-    return { entries: entries, skipped: skipped };
   }
 
   function renderListGrid(entries) {
@@ -360,17 +376,7 @@
     window.print();
   });
 
-  document.getElementById("applyBtn").addEventListener("click", () => {
-    const result = parseSubmissions(pasteInput.value);
-    renderListGrid(result.entries);
-    if (result.entries.length === 0) {
-      setMsg(listMsg, "反映できる行が見つかりませんでした。文章の形式（例：田中 2026-10: 9出 14公）を確認してください。", "err");
-    } else {
-      let text = result.entries.length + "人分を反映しました。";
-      if (result.skipped > 0) text += "（読み取れなかった行が" + result.skipped + "件あります）";
-      setMsg(listMsg, text, "ok");
-    }
-  });
+  document.getElementById("refreshListBtn").addEventListener("click", loadListFromFirestore);
 })();
 </script>
 
