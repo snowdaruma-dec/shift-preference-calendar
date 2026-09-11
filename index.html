@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>来月の勤務希望</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"></noscript>
+<style>
+  :root {
+    --paper: #ECE8DF;
+    --paper-line: #D8D2C4;
+    --ink: #262A2E;
+    --ink-soft: #6B6F72;
+    --off: #F7F5EF;
+    --day-off: #6B6F8A;
+    --paid-off: #2F6F63;
+    --work: #C1702C;
+    --unset-bg: #F7F5EF;
+    --line: #C9C2AF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; background: transparent; color: var(--ink); }
+  .sheet { max-width: 460px; margin: 0 auto; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; overflow: hidden; }
+  .sheet-head { padding: 20px 20px 14px; border-bottom: 1px solid var(--paper-line); }
+  .title { font-family: "Yomogi", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; font-size: 26px; margin: 0 0 2px; line-height: 1.3; }
+  .subtitle { font-size: 12.5px; color: var(--ink-soft); margin: 0; }
+  .tabs { display: flex; border-bottom: 1px solid var(--paper-line); }
+  .tab { flex: 1; padding: 11px 0; text-align: center; font-size: 13.5px; font-weight: 500; color: var(--ink-soft); background: var(--off); border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+  .tab.active { color: var(--ink); background: var(--paper); border-bottom: 2px solid var(--work); }
+  .panel { padding: 18px 18px 22px; }
+  .panel.hidden { display: none; }
+
+  .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .field-row label { font-size: 13px; color: var(--ink-soft); width: 44px; flex-shrink: 0; }
+  .field-row input { flex: 1; font-family: inherit; font-size: 14.5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--off); color: var(--ink); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0 14px; font-size: 12px; color: var(--ink-soft); }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+  .wd { text-align: center; font-size: 11.5px; color: var(--ink-soft); padding-bottom: 4px; }
+  .wd.sun { color: #B5504E; }
+  .wd.sat { color: #3E6FA6; }
+
+  .cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; user-select: none; transition: background 0.12s ease, transform 0.06s ease; }
+  .cell:active { transform: scale(0.94); }
+  .cell.empty { border: none; background: transparent; cursor: default; }
+  .cell .num { font-size: 11px; color: var(--ink-soft); line-height: 1; }
+  .cell .mark { font-size: 13px; font-weight: 700; line-height: 1.4; }
+  .cell.state-off { background: var(--day-off); }
+  .cell.state-off .num, .cell.state-off .mark { color: #fff; }
+  .cell.state-paid { background: var(--paid-off); }
+  .cell.state-paid .num, .cell.state-paid .mark { color: #fff; }
+  .cell.state-work { background: var(--work); }
+  .cell.state-work .num, .cell.state-work .mark { color: #fff; }
+
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { flex: 1; padding: 11px 0; font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 3px; border: none; cursor: pointer; }
+  .btn.primary { background: var(--ink); color: var(--off); }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); flex: 0 0 auto; padding: 11px 16px; }
+
+  .msg { margin-top: 10px; font-size: 12.5px; min-height: 16px; color: var(--ink-soft); }
+  .msg.ok { color: var(--paid-off); }
+  .msg.err { color: #B5504E; }
+
+  .share { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--ink-soft); line-height: 1.6; }
+
+  .output-box { margin-top: 14px; padding: 12px; background: var(--off); border: 1px solid var(--line); border-radius: 4px; }
+  .output-box.hidden { display: none; }
+  .output-box label { display: block; font-size: 11.5px; color: var(--ink-soft); margin-bottom: 6px; }
+  .output-box textarea { width: 100%; font-family: "Noto Sans JP", monospace; font-size: 13px; padding: 8px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); resize: vertical; min-height: 60px; }
+  .copy-btn { margin-top: 8px; width: 100%; padding: 9px 0; font-size: 13px; font-weight: 600; background: var(--paid-off); color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+
+  .paste-box { margin-bottom: 14px; }
+  .paste-box p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; margin: 0 0 8px; }
+  .paste-box textarea { width: 100%; font-family: "Noto Sans JP", monospace; font-size: 12.5px; padding: 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--off); color: var(--ink); resize: vertical; min-height: 90px; }
+  .apply-btn { margin-top: 8px; width: 100%; padding: 10px 0; font-size: 14px; font-weight: 600; background: var(--ink); color: var(--off); border: none; border-radius: 3px; cursor: pointer; }
+
+  .list-cell { border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); padding: 3px 3px 4px; min-height: 50px; display: flex; flex-direction: column; gap: 1px; }
+  .list-cell .daynum { font-size: 10px; color: var(--ink-soft); line-height: 1.4; }
+  .list-entry { font-size: 9.5px; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-entry.off { color: var(--day-off); }
+  .list-entry.paid { color: var(--paid-off); }
+  .list-entry.work { color: var(--work); }
+  .empty-state { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 30px 10px; }
+  .empty-state.hidden { display: none; }
+
+  .print-btn { margin-top: 4px; width: 100%; padding: 10px 0; font-size: 13.5px; font-weight: 600; background: var(--work); color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+
+  @media print {
+    body { background: #fff; }
+    .sheet { border: none; max-width: 100%; }
+    .tabs, .paste-box, .print-btn, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="sheet-head">
+    <p class="title" id="pageTitle">来月の勤務希望</p>
+    <p class="subtitle" id="monthLabel">読み込み中…</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabInput">入力</button>
+    <button class="tab" id="tabList">一覧</button>
+  </div>
+
+  <div class="panel" id="panelInput">
+    <div class="field-row">
+      <label for="nameInput">名前</label>
+      <input id="nameInput" type="text" placeholder="例：田中" maxlength="20">
+    </div>
+
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--day-off)"></span>公休</span>
+      <span><span class="swatch" style="background:var(--paid-off)"></span>有休</span>
+      <span><span class="swatch" style="background:var(--work)"></span>出勤</span>
+      <span><span class="swatch" style="background:var(--unset-bg);border:1px solid var(--line)"></span>未定</span>
+    </div>
+
+    <div class="grid" id="weekdayRow"></div>
+    <div class="grid" id="calendarGrid"></div>
+
+    <div class="actions">
+      <button class="btn primary" id="submitBtn">提出用の文章を作る</button>
+      <button class="btn ghost" id="clearBtn">消去</button>
+    </div>
+    <div class="msg" id="inputMsg"></div>
+
+    <div class="output-box hidden" id="outputBox">
+      <label>この文章をコピーしてグループLINEに貼り付けてください</label>
+      <textarea id="submitText" rows="2" readonly></textarea>
+      <button class="copy-btn" id="copyBtn">コピーする</button>
+    </div>
+
+    <div class="share">
+      日付をタップすると 公休→有休→出勤→未定 の順に切り替わります。「提出用の文章を作る」を押すとLINEに貼る用の文章ができます。このページのURLをグループLINEに共有すれば、全員が同じページから入力できます。
+    </div>
+  </div>
+
+  <div class="panel hidden" id="panelList">
+    <div class="paste-box">
+      <p>LINEグループに貼られた提出文章を全員分コピーして、まとめてここに貼り付けてください（1人1行）。</p>
+      <textarea id="pasteInput" placeholder="田中 2026-10: 9出 14公 18公 23有 26公 29公&#10;佐藤 2026-10: 6公 12出"></textarea>
+      <button class="apply-btn" id="applyBtn">カレンダーに反映する</button>
+    </div>
+    <div class="msg" id="listMsg"></div>
+    <button class="print-btn" id="printBtn">この一覧を印刷する</button>
+    <div class="grid" id="listWeekdayRow"></div>
+    <div class="grid" id="listCalendarGrid"></div>
+    <p class="empty-state" id="listEmptyState">まだ何も反映されていません。上に貼り付けて反映してください。</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const year = next.getFullYear();
+  const month = next.getMonth(); // 0-indexed
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthTag = year + "-" + String(month + 1).padStart(2, "0");
+
+  document.getElementById("monthLabel").textContent = year + "年" + (month + 1) + "月分の希望";
+  document.getElementById("pageTitle").textContent = (month + 1) + "月の勤務希望";
+
+  const STATES = ["unset", "off", "paid", "work"];
+  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出" };
+  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work" };
+  const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+  const firstWeekday = new Date(year, month, 1).getDay();
+
+  let dayStates = new Array(daysInMonth).fill("unset");
+
+  function buildWeekdayRow(container) {
+    container.innerHTML = "";
+    WEEKDAYS.forEach((w, i) => {
+      const el = document.createElement("div");
+      el.className = "wd" + (i === 0 ? " sun" : i === 6 ? " sat" : "");
+      el.textContent = w;
+      container.appendChild(el);
+    });
+  }
+  buildWeekdayRow(document.getElementById("weekdayRow"));
+  buildWeekdayRow(document.getElementById("listWeekdayRow"));
+
+  const grid = document.getElementById("calendarGrid");
+
+  function render() {
+    grid.innerHTML = "";
+    for (let i = 0; i < firstWeekday; i++) {
+      const empty = document.createElement("div");
+      empty.className = "cell empty";
+      grid.appendChild(empty);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const state = dayStates[d - 1];
+      const cell = document.createElement("div");
+      cell.className = "cell " + STATE_CLASS[state];
+      cell.innerHTML = '<span class="num">' + d + '</span><span class="mark">' + STATE_LABEL[state] + '</span>';
+      cell.addEventListener("click", () => {
+        const idx = STATES.indexOf(dayStates[d - 1]);
+        dayStates[d - 1] = STATES[(idx + 1) % STATES.length];
+        render();
+      });
+      grid.appendChild(cell);
+    }
+  }
+  render();
+
+  const nameInput = document.getElementById("nameInput");
+  const msg = document.getElementById("inputMsg");
+  const outputBox = document.getElementById("outputBox");
+  const submitText = document.getElementById("submitText");
+
+  function setMsg(el, text, kind) {
+    el.textContent = text;
+    el.className = "msg" + (kind ? " " + kind : "");
+  }
+
+  document.getElementById("submitBtn").addEventListener("click", () => {
+    const name = nameInput.value.trim();
+    if (!name) {
+      setMsg(msg, "名前を入力してください。", "err");
+      outputBox.classList.add("hidden");
+      return;
+    }
+    const pairs = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const state = dayStates[d - 1];
+      if (state === "unset") continue;
+      pairs.push(d + STATE_LABEL[state]);
+    }
+    if (pairs.length === 0) {
+      setMsg(msg, "少なくとも1日は希望を入れてください。", "err");
+      outputBox.classList.add("hidden");
+      return;
+    }
+    const text = name + " " + monthTag + ": " + pairs.join(" ");
+    submitText.value = text;
+    outputBox.classList.remove("hidden");
+    setMsg(msg, "下の文章をコピーしてLINEグループに貼り付けてください。", "ok");
+  });
+
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    dayStates = new Array(daysInMonth).fill("unset");
+    render();
+    outputBox.classList.add("hidden");
+    setMsg(msg, "入力をリセットしました。");
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    const text = submitText.value;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        setMsg(msg, "コピーしました。LINEに貼り付けてください。", "ok");
+        return;
+      }
+      throw new Error("no clipboard api");
+    } catch (e) {
+      try {
+        submitText.focus();
+        submitText.select();
+        document.execCommand("copy");
+        setMsg(msg, "コピーしました。LINEに貼り付けてください。", "ok");
+      } catch (e2) {
+        setMsg(msg, "自動コピーできませんでした。上の文章を長押しして選択・コピーしてください。", "err");
+      }
+    }
+  });
+
+  // Tabs
+  const tabInput = document.getElementById("tabInput");
+  const tabList = document.getElementById("tabList");
+  const panelInput = document.getElementById("panelInput");
+  const panelList = document.getElementById("panelList");
+
+  tabInput.addEventListener("click", () => {
+    tabInput.classList.add("active");
+    tabList.classList.remove("active");
+    panelInput.classList.remove("hidden");
+    panelList.classList.add("hidden");
+  });
+  tabList.addEventListener("click", () => {
+    tabList.classList.add("active");
+    tabInput.classList.remove("active");
+    panelList.classList.remove("hidden");
+    panelInput.classList.add("hidden");
+  });
+
+  // List / paste-merge view
+  const listGrid = document.getElementById("listCalendarGrid");
+  const listEmptyState = document.getElementById("listEmptyState");
+  const listMsg = document.getElementById("listMsg");
+  const pasteInput = document.getElementById("pasteInput");
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function parseSubmissions(text) {
+    const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const lineRe = /^(\S+)\s+(\d{4})-(\d{2}):\s*(.+)$/;
+    const pairRe = /(\d{1,2})\s*(公|有|出)/g;
+    const entries = [];
+    let skipped = 0;
+    for (const line of lines) {
+      const m = line.match(lineRe);
+      if (!m) { skipped++; continue; }
+      const lineYear = parseInt(m[2], 10);
+      const lineMonth = parseInt(m[3], 10);
+      if (lineYear !== year || lineMonth !== (month + 1)) { skipped++; continue; }
+      const states = new Array(daysInMonth).fill("unset");
+      let pm;
+      pairRe.lastIndex = 0;
+      while ((pm = pairRe.exec(m[4])) !== null) {
+        const day = parseInt(pm[1], 10);
+        const mark = pm[2];
+        const state = mark === "公" ? "off" : mark === "有" ? "paid" : "work";
+        if (day >= 1 && day <= daysInMonth) states[day - 1] = state;
+      }
+      entries.push({ name: m[1], states: states });
+    }
+    return { entries: entries, skipped: skipped };
+  }
+
+  function renderListGrid(entries) {
+    listGrid.innerHTML = "";
+    if (entries.length === 0) {
+      listEmptyState.classList.remove("hidden");
+      return;
+    }
+    listEmptyState.classList.add("hidden");
+    for (let i = 0; i < firstWeekday; i++) {
+      const empty = document.createElement("div");
+      empty.className = "cell empty";
+      listGrid.appendChild(empty);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cell = document.createElement("div");
+      cell.className = "list-cell";
+      let html = '<span class="daynum">' + d + "</span>";
+      for (const entry of entries) {
+        const state = entry.states[d - 1] || "unset";
+        if (state === "unset") continue;
+        html += '<span class="list-entry ' + state + '">' + escapeHtml(entry.name) + "(" + STATE_LABEL[state] + ")</span>";
+      }
+      cell.innerHTML = html;
+      listGrid.appendChild(cell);
+    }
+  }
+
+  document.getElementById("printBtn").addEventListener("click", () => {
+    window.print();
+  });
+
+  document.getElementById("applyBtn").addEventListener("click", () => {
+    const result = parseSubmissions(pasteInput.value);
+    renderListGrid(result.entries);
+    if (result.entries.length === 0) {
+      setMsg(listMsg, "反映できる行が見つかりませんでした。文章の形式（例：田中 2026-10: 9出 14公）を確認してください。", "err");
+    } else {
+      let text = result.entries.length + "人分を反映しました。";
+      if (result.skipped > 0) text += "（読み取れなかった行が" + result.skipped + "件あります）";
+      setMsg(listMsg, text, "ok");
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
