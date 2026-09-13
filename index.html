@@ -171,7 +171,8 @@ const db = getFirestore(firebaseApp);
   const groupId = (params.get("g") || "common").trim();
 
   const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthsAhead = now.getDate() >= 20 ? 2 : 1;
+  const next = new Date(now.getFullYear(), now.getMonth() + monthsAhead, 1);
   const year = next.getFullYear();
   const month = next.getMonth(); // 0-indexed
   const daysInMonth = new Date(year, month + 1, 0).getDate();
