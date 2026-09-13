@@ -373,15 +373,29 @@ const db = getFirestore(firebaseApp);
 
   const STATE_ORDER = { off: 0, paid: 1, work: 2 };
   const TWO_COL_THRESHOLD = 5;
+  const CELL_GAP = 4;
+  const CELL_H_PADDING = 4;
+  const CELL_V_PADDING = 5;
+  const DAYNUM_HEIGHT = 9.5 * 1.2;
+  const COL_GAP = 3;
+  const ENTRY_LINE_HEIGHT = 1.05;
+  const measureCtx = document.createElement("canvas").getContext("2d");
 
-  function fontSizeForRows(rows) {
-    if (rows <= 2) return 9.5;
-    if (rows === 3) return 8.2;
-    if (rows === 4) return 7.1;
-    if (rows === 5) return 6.3;
-    if (rows === 6) return 5.7;
-    if (rows === 7) return 5.2;
-    return 4.8;
+  function measureWidth(text, size) {
+    measureCtx.font = "700 " + size + 'px "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif';
+    return measureCtx.measureText(text).width;
+  }
+
+  function bestFontSize(texts, colWidth, availableHeight, rows, maxSize) {
+    let size = maxSize;
+    while (size > 4.2) {
+      const widest = Math.max(...texts.map((t) => measureWidth(t, size)));
+      const fitsWidth = widest <= colWidth;
+      const fitsHeight = size * ENTRY_LINE_HEIGHT * rows <= availableHeight;
+      if (fitsWidth && fitsHeight) return size;
+      size -= 0.2;
+    }
+    return 4.2;
   }
 
   function renderListGrid(entries) {
@@ -396,6 +410,9 @@ const db = getFirestore(firebaseApp);
       empty.className = "cell empty";
       listGrid.appendChild(empty);
     }
+    const gridWidth = listGrid.clientWidth || 460;
+    const cellSize = (gridWidth - 6 * CELL_GAP) / 7;
+    const availableHeight = cellSize - DAYNUM_HEIGHT - CELL_V_PADDING;
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement("div");
       cell.className = "list-cell";
@@ -406,7 +423,13 @@ const db = getFirestore(firebaseApp);
       }
       const cols = crowded ? 2 : 1;
       const rows = Math.ceil(dayEntries.length / cols) || 1;
-      const fontSize = fontSizeForRows(rows);
+      const colWidth = cols === 1
+        ? cellSize - CELL_H_PADDING
+        : (cellSize - CELL_H_PADDING - COL_GAP) / 2;
+      const texts = dayEntries.map((entry) => entry.name + "(" + STATE_LABEL[entry.states[d - 1]] + ")");
+      const fontSize = texts.length
+        ? bestFontSize(texts, colWidth, availableHeight, rows, 9.5)
+        : 9.5;
       let html = '<span class="daynum">' + d + "</span>";
       html += '<div class="list-entries' + (crowded ? " cols2" : "") + '" style="grid-template-rows:repeat(' + rows + ',auto)">';
       for (const entry of dayEntries) {
