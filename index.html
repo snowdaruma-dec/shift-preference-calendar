@@ -87,12 +87,14 @@
   .empty-state.hidden { display: none; }
 
   .print-btn { margin-top: 4px; width: 100%; padding: 10px 0; font-size: 13.5px; font-weight: 600; background: var(--work); color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+  .line-hint { margin: 8px 0 4px; padding: 10px 12px; font-size: 12px; line-height: 1.6; color: var(--ink); background: var(--off); border: 1px solid var(--line); border-radius: 4px; }
+  .line-hint.hidden { display: none; }
 
   @page { size: A4; margin: 12mm; }
   @media print {
     body { background: #fff; }
     .sheet { border: none; max-width: 100%; break-inside: avoid; }
-    .tabs, .refresh-btn, .print-btn, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+    .tabs, .refresh-btn, .print-btn, .line-hint, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
   }
 </style>
 </head>
@@ -145,6 +147,7 @@
     <button class="refresh-btn" id="refreshListBtn">最新の状態に更新</button>
     <div class="msg" id="listMsg"></div>
     <button class="print-btn" id="printBtn">この一覧を印刷する</button>
+    <p class="line-hint hidden" id="lineHint">LINEの画面のまま印刷しようとすると反応しません。右上の「…」から「他のアプリで開く」または「Safari／Chromeで開く」を選んでから、もう一度お試しください。</p>
     <div class="grid" id="listWeekdayRow"></div>
     <div class="grid" id="listCalendarGrid"></div>
     <p class="empty-state" id="listEmptyState">まだ誰も入力していません。</p>
@@ -442,7 +445,18 @@ const db = getFirestore(firebaseApp);
     }
   }
 
+  const isInAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent);
+  const lineHint = document.getElementById("lineHint");
+  if (isInAppBrowser) {
+    lineHint.classList.remove("hidden");
+  }
+
   document.getElementById("printBtn").addEventListener("click", () => {
+    if (isInAppBrowser) {
+      lineHint.classList.remove("hidden");
+      lineHint.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     window.print();
   });
 
