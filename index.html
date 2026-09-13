@@ -424,9 +424,7 @@ const db = getFirestore(firebaseApp);
       const colWidth = cols === 1
         ? cellSize - CELL_H_PADDING
         : (cellSize - CELL_H_PADDING - COL_GAP) / 2;
-      const formatEntry = crowded
-        ? (entry, state) => entry.name + STATE_LABEL[state]
-        : (entry, state) => entry.name + "(" + STATE_LABEL[state] + ")";
+      const formatEntry = (entry, state) => entry.name + "(" + STATE_LABEL[state] + ")";
       const texts = dayEntries.map((entry) => formatEntry(entry, entry.states[d - 1]));
       const fontSize = texts.length
         ? bestFontSize(texts, colWidth, availableHeight, rows, 9.5)
