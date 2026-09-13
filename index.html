@@ -78,6 +78,8 @@
 
   .list-cell { aspect-ratio: 1; min-width: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); padding: 2px 2px 3px; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
   .list-cell .daynum { font-size: 9.5px; color: var(--ink-soft); line-height: 1.2; flex: 0 0 auto; }
+  .list-entries { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .list-entries.cols2 { display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr; column-gap: 3px; }
   .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list-entry.off { color: var(--day-off); }
   .list-entry.paid { color: var(--paid-off); }
@@ -369,13 +371,16 @@ const db = getFirestore(firebaseApp);
     }
   }
 
-  function entryFontSize(n) {
-    if (n <= 2) return 9.5;
-    if (n === 3) return 8.2;
-    if (n === 4) return 7.1;
-    if (n === 5) return 6.3;
-    if (n === 6) return 5.7;
-    if (n === 7) return 5.2;
+  const STATE_ORDER = { off: 0, paid: 1, work: 2 };
+  const TWO_COL_THRESHOLD = 5;
+
+  function fontSizeForRows(rows) {
+    if (rows <= 2) return 9.5;
+    if (rows === 3) return 8.2;
+    if (rows === 4) return 7.1;
+    if (rows === 5) return 6.3;
+    if (rows === 6) return 5.7;
+    if (rows === 7) return 5.2;
     return 4.8;
   }
 
@@ -394,13 +399,21 @@ const db = getFirestore(firebaseApp);
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement("div");
       cell.className = "list-cell";
-      const dayEntries = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
-      const fontSize = entryFontSize(dayEntries.length);
+      let dayEntries = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
+      const crowded = dayEntries.length >= TWO_COL_THRESHOLD;
+      if (crowded) {
+        dayEntries = dayEntries.slice().sort((a, b) => STATE_ORDER[a.states[d - 1]] - STATE_ORDER[b.states[d - 1]]);
+      }
+      const cols = crowded ? 2 : 1;
+      const rows = Math.ceil(dayEntries.length / cols) || 1;
+      const fontSize = fontSizeForRows(rows);
       let html = '<span class="daynum">' + d + "</span>";
+      html += '<div class="list-entries' + (crowded ? " cols2" : "") + '" style="grid-template-rows:repeat(' + rows + ',auto)">';
       for (const entry of dayEntries) {
         const state = entry.states[d - 1];
         html += '<span class="list-entry ' + state + '" style="font-size:' + fontSize + 'px">' + escapeHtml(entry.name) + "(" + STATE_LABEL[state] + ")</span>";
       }
+      html += "</div>";
       cell.innerHTML = html;
       listGrid.appendChild(cell);
     }
