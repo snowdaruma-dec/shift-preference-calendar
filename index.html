@@ -20,7 +20,7 @@
     --unset-bg: #F7F5EF;
     --line: #C9C2AF;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { margin: 0; font-family: "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; background: transparent; color: var(--ink); }
   .sheet { max-width: 460px; margin: 0 auto; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; overflow: hidden; }
   .sheet-head { padding: 18px 20px; border-bottom: 1px solid var(--paper-line); }
@@ -359,6 +359,7 @@ const db = getFirestore(firebaseApp);
         const data = d.data();
         entries.push({ name: data.name, states: data.states || [] });
       });
+      await fontsReady;
       renderListGrid(entries);
       if (entries.length === 0) {
         setMsg(listMsg, "");
@@ -380,6 +381,12 @@ const db = getFirestore(firebaseApp);
   const COL_GAP = 3;
   const ENTRY_LINE_HEIGHT = 1.05;
   const measureCtx = document.createElement("canvas").getContext("2d");
+  const fontsReady = (document.fonts && document.fonts.load)
+    ? Promise.all([
+        document.fonts.load('700 16px "Noto Sans JP"'),
+        document.fonts.load('400 16px "Noto Sans JP"')
+      ]).then(() => document.fonts.ready).catch(() => {})
+    : Promise.resolve();
 
   function measureWidth(text, size) {
     measureCtx.font = "700 " + size + 'px "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif';
