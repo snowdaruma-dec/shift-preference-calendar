@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>来月の勤務希望</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"></noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
 <style>
   :root {
     --paper: #ECE8DF;
@@ -450,6 +449,28 @@ const db = getFirestore(firebaseApp);
       cell.innerHTML = html;
       listGrid.appendChild(cell);
     }
+    correctOverflow();
+  }
+
+  function correctOverflow() {
+    const cells = listGrid.querySelectorAll(".list-cell");
+    cells.forEach((cell) => {
+      const spans = cell.querySelectorAll(".list-entry");
+      if (spans.length === 0) return;
+      let guard = 0;
+      while (guard < 40) {
+        let overflowing = false;
+        spans.forEach((s) => {
+          if (s.scrollWidth > s.clientWidth + 0.5) overflowing = true;
+        });
+        if (!overflowing) return;
+        const current = parseFloat(spans[0].style.fontSize) || 9.5;
+        const next = current - 0.2;
+        if (next < 4.0) return;
+        spans.forEach((s) => { s.style.fontSize = next + "px"; });
+        guard++;
+      }
+    });
   }
 
   const isInAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent);
