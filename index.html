@@ -76,9 +76,9 @@
 
   .refresh-btn { margin-bottom: 12px; width: 100%; padding: 10px 0; font-size: 13.5px; font-weight: 600; background: var(--ink); color: var(--off); border: none; border-radius: 3px; cursor: pointer; }
 
-  .list-cell { border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); padding: 3px 3px 4px; min-height: 50px; display: flex; flex-direction: column; gap: 1px; }
-  .list-cell .daynum { font-size: 10px; color: var(--ink-soft); line-height: 1.4; }
-  .list-entry { font-size: 9.5px; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-cell { aspect-ratio: 1; min-width: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); padding: 2px 2px 3px; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
+  .list-cell .daynum { font-size: 9.5px; color: var(--ink-soft); line-height: 1.2; flex: 0 0 auto; }
+  .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list-entry.off { color: var(--day-off); }
   .list-entry.paid { color: var(--paid-off); }
   .list-entry.work { color: var(--work); }
@@ -272,11 +272,6 @@ const db = getFirestore(firebaseApp);
       if (state === "unset") continue;
       pairs.push(d + STATE_LABEL[state]);
     }
-    if (pairs.length === 0) {
-      setMsg(msg, "少なくとも1日は希望を入れてください。", "err");
-      outputBox.classList.add("hidden");
-      return;
-    }
     setMsg(msg, "保存しています…");
     try {
       const personDocId = encodeURIComponent(name);
@@ -285,10 +280,10 @@ const db = getFirestore(firebaseApp);
         states: dayStates,
         updatedAt: serverTimestamp()
       });
-      const text = name + " " + monthTag + ": " + pairs.join(" ");
+      const text = pairs.length > 0 ? (name + " " + monthTag + ": " + pairs.join(" ")) : (name + " " + monthTag + ": 希望なし");
       submitText.value = text;
       outputBox.classList.remove("hidden");
-      setMsg(msg, "保存しました。一覧タブでグループ全員分の希望が確認できます。", "ok");
+      setMsg(msg, pairs.length > 0 ? "保存しました。一覧タブでグループ全員分の希望が確認できます。" : "保存しました（希望なしとして記録されました）。", "ok");
     } catch (e) {
       setMsg(msg, "保存に失敗しました。通信環境を確認してもう一度お試しください。", "err");
       outputBox.classList.add("hidden");
@@ -369,6 +364,16 @@ const db = getFirestore(firebaseApp);
     }
   }
 
+  function entryFontSize(n) {
+    if (n <= 2) return 9.5;
+    if (n === 3) return 8.2;
+    if (n === 4) return 7.1;
+    if (n === 5) return 6.3;
+    if (n === 6) return 5.7;
+    if (n === 7) return 5.2;
+    return 4.8;
+  }
+
   function renderListGrid(entries) {
     listGrid.innerHTML = "";
     if (entries.length === 0) {
@@ -384,11 +389,12 @@ const db = getFirestore(firebaseApp);
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement("div");
       cell.className = "list-cell";
+      const dayEntries = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
+      const fontSize = entryFontSize(dayEntries.length);
       let html = '<span class="daynum">' + d + "</span>";
-      for (const entry of entries) {
-        const state = entry.states[d - 1] || "unset";
-        if (state === "unset") continue;
-        html += '<span class="list-entry ' + state + '">' + escapeHtml(entry.name) + "(" + STATE_LABEL[state] + ")</span>";
+      for (const entry of dayEntries) {
+        const state = entry.states[d - 1];
+        html += '<span class="list-entry ' + state + '" style="font-size:' + fontSize + 'px">' + escapeHtml(entry.name) + "(" + STATE_LABEL[state] + ")</span>";
       }
       cell.innerHTML = html;
       listGrid.appendChild(cell);
