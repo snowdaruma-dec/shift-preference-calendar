@@ -358,7 +358,12 @@ const db = getFirestore(firebaseApp);
         entries.push({ name: data.name, states: data.states || [] });
       });
       renderListGrid(entries);
-      setMsg(listMsg, entries.length + "人分を表示しています。", "ok");
+      if (entries.length === 0) {
+        setMsg(listMsg, "");
+      } else {
+        const names = entries.map((entry) => entry.name).join("、");
+        setMsg(listMsg, entries.length + "人が入力済み：" + names, "ok");
+      }
     } catch (e) {
       setMsg(listMsg, "読み込みに失敗しました。通信環境を確認してもう一度お試しください。", "err");
     }
