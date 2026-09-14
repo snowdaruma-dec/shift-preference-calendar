@@ -96,11 +96,12 @@
 
   .test-banner { padding: 8px 20px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; color: #fff; background: var(--day-off); text-align: center; }
 
-  @page { size: A4; margin: 12mm; }
+  @page { size: A4 landscape; margin: 12mm; }
   @media print {
     body { background: #fff; }
     .sheet { border: none; max-width: 100%; break-inside: avoid; }
     .test-banner, .month-picker, .tabs, .refresh-btn, .print-btn, .line-hint, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+    #listCalendarGrid, #listWeekdayRow { grid-template-columns: repeat(7, var(--print-cell-mm, 1fr)); justify-content: start; }
   }
 </style>
 </head>
@@ -395,6 +396,8 @@ const db = getFirestore(firebaseApp);
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  let lastEntries = [];
+
   async function loadListFromFirestore() {
     const requestedMonthTag = monthTag;
     setMsg(listMsg, "読み込み中…");
@@ -408,6 +411,7 @@ const db = getFirestore(firebaseApp);
       });
       await fontsReady;
       if (requestedMonthTag !== monthTag) return;
+      lastEntries = entries;
       renderListGrid(entries);
       if (entries.length === 0) {
         setMsg(listMsg, "");
@@ -455,7 +459,7 @@ const db = getFirestore(firebaseApp);
     return 4.2;
   }
 
-  function renderListGrid(entries) {
+  function renderListGrid(entries, cellSizeOverride) {
     listGrid.innerHTML = "";
     if (entries.length === 0) {
       listEmptyState.classList.remove("hidden");
@@ -468,7 +472,7 @@ const db = getFirestore(firebaseApp);
       listGrid.appendChild(empty);
     }
     const gridWidth = listGrid.clientWidth || 460;
-    const cellSize = (gridWidth - 6 * CELL_GAP) / 7;
+    const cellSize = cellSizeOverride || (gridWidth - 6 * CELL_GAP) / 7;
     const availableHeight = cellSize - DAYNUM_HEIGHT - CELL_V_PADDING;
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement("div");
@@ -536,6 +540,31 @@ const db = getFirestore(firebaseApp);
     }
     window.print();
   });
+
+  // A4 landscape print sizing: pick the larger of (page width / 7 columns)
+  // or (page height / rows this month needs), whichever actually fits,
+  // then re-render entries at that size so print isn't stuck at screen size.
+  const PX_PER_MM = 96 / 25.4;
+  const PRINT_PAGE_W_MM = 273; // A4 landscape minus 12mm margins each side
+  const PRINT_PAGE_H_MM = 186;
+  const PRINT_HEADER_MM = 20; // title line + weekday row, approximate
+  const PRINT_GAP_MM = 1.1;
+
+  function applyPrintSizing() {
+    const rows = Math.ceil((firstWeekday + daysInMonth) / 7);
+    const cellFromWidth = (PRINT_PAGE_W_MM - 6 * PRINT_GAP_MM) / 7;
+    const cellFromHeight = (PRINT_PAGE_H_MM - PRINT_HEADER_MM - (rows - 1) * PRINT_GAP_MM) / rows;
+    const cellMM = Math.min(cellFromWidth, cellFromHeight);
+    document.documentElement.style.setProperty("--print-cell-mm", cellMM + "mm");
+    renderListGrid(lastEntries, cellMM * PX_PER_MM);
+  }
+
+  function restoreScreenSizing() {
+    renderListGrid(lastEntries);
+  }
+
+  window.addEventListener("beforeprint", applyPrintSizing);
+  window.addEventListener("afterprint", restoreScreenSizing);
 
   document.getElementById("refreshListBtn").addEventListener("click", loadListFromFirestore);
 
