@@ -16,6 +16,7 @@
     --day-off: #6B6F8A;
     --paid-off: #2F6F63;
     --work: #C1702C;
+    --special: #8B4C6B;
     --unset-bg: #F7F5EF;
     --line: #C9C2AF;
   }
@@ -59,6 +60,8 @@
   .cell.state-paid .num, .cell.state-paid .mark { color: #fff; }
   .cell.state-work { background: var(--work); }
   .cell.state-work .num, .cell.state-work .mark { color: #fff; }
+  .cell.state-special { background: var(--special); }
+  .cell.state-special .num, .cell.state-special .mark { color: #fff; }
 
   .actions { display: flex; gap: 8px; margin-top: 16px; }
   .btn { flex: 1; padding: 11px 0; font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 3px; border: none; cursor: pointer; }
@@ -87,6 +90,7 @@
   .list-entry.off { color: var(--day-off); }
   .list-entry.paid { color: var(--paid-off); }
   .list-entry.work { color: var(--work); }
+  .list-entry.special { color: var(--special); }
   .empty-state { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 30px 10px; }
   .empty-state.hidden { display: none; }
 
@@ -130,6 +134,7 @@
       <span><span class="swatch" style="background:var(--day-off)"></span>公休</span>
       <span><span class="swatch" style="background:var(--paid-off)"></span>有休</span>
       <span><span class="swatch" style="background:var(--work)"></span>出勤</span>
+      <span><span class="swatch" style="background:var(--special)"></span>特別休暇</span>
       <span><span class="swatch" style="background:var(--unset-bg);border:1px solid var(--line)"></span>未定</span>
     </div>
 
@@ -149,7 +154,7 @@
     </div>
 
     <div class="share">
-      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。
+      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→特別休暇→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。
     </div>
   </div>
 
@@ -194,9 +199,9 @@ const db = getFirestore(firebaseApp);
   }
   let selectedIndex = 0;
 
-  const STATES = ["unset", "off", "paid", "work"];
-  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出" };
-  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work" };
+  const STATES = ["unset", "off", "paid", "work", "special"];
+  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出", special: "特" };
+  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work", special: "state-special" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
   let year, month, daysInMonth, monthTag, firstWeekday, peopleCollection, draftKey;
@@ -424,7 +429,7 @@ const db = getFirestore(firebaseApp);
     }
   }
 
-  const STATE_ORDER = { off: 0, paid: 1, work: 2 };
+  const STATE_ORDER = { off: 0, paid: 1, work: 2, special: 3 };
   const TWO_COL_THRESHOLD = 5;
   const CELL_GAP = 4;
   const CELL_H_PADDING = 4;
