@@ -541,14 +541,19 @@ const db = getFirestore(firebaseApp);
     window.print();
   });
 
-  // A4 landscape print sizing: pick the smaller of (natural width-driven
-  // cell size) or (page height / rows this month needs), so a 6-row month
-  // never spills onto a second page. Header height, panel padding, and the
-  // grid's own width are all measured live from the real print layout
+  // A4 landscape print sizing: pick the smaller of (page width / 7 columns)
+  // or (page height / rows this month needs), so a 6-row month never spills
+  // onto a second page. Width comes from the fixed @page size (measuring it
+  // live is unreliable — at beforeprint the browser can still be laid out
+  // at the on-screen window width, not the real paper width, understating
+  // it badly). Header height doesn't depend on width (no wrapping text in
+  // it), so that part is safe to measure live from the real print layout
   // instead of guessed, since padding/margins are easy to miscount by hand.
   const PX_PER_MM = 96 / 25.4;
+  const PRINT_PAGE_W_MM = 273; // A4 landscape width minus 12mm margins left+right
   const PRINT_PAGE_H_MM = 186; // A4 landscape height minus 12mm margins top+bottom
   const PRINT_GAP_MM = CELL_GAP * (25.4 / 96);
+  const PANEL_H_PADDING_MM = 18 * (25.4 / 96) * 2; // .panel's left+right padding
   const PANEL_BOTTOM_PADDING_MM = 22 * (25.4 / 96);
   const PRINT_SAFETY_MM = 3;
 
@@ -558,10 +563,9 @@ const db = getFirestore(firebaseApp);
     document.documentElement.style.removeProperty("--print-cell-mm");
     const sheetTop = document.querySelector(".sheet").getBoundingClientRect().top;
     const gridTop = listGrid.getBoundingClientRect().top;
-    const gridWidthPx = listGrid.getBoundingClientRect().width;
     const headerMM = (gridTop - sheetTop) / PX_PER_MM;
 
-    const cellFromWidthMM = (gridWidthPx / PX_PER_MM - 6 * PRINT_GAP_MM) / 7;
+    const cellFromWidthMM = (PRINT_PAGE_W_MM - PANEL_H_PADDING_MM - 6 * PRINT_GAP_MM) / 7;
     const availableHeightMM = PRINT_PAGE_H_MM - headerMM - PANEL_BOTTOM_PADDING_MM - PRINT_SAFETY_MM - (rows - 1) * PRINT_GAP_MM;
     const cellFromHeightMM = availableHeightMM / rows;
     const cellMM = Math.max(4, Math.min(cellFromWidthMM, cellFromHeightMM));
