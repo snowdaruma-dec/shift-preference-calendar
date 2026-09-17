@@ -16,6 +16,7 @@
     --day-off: #6B6F8A;
     --paid-off: #2F6F63;
     --work: #C1702C;
+    --special: #8B4C6B;
     --unset-bg: #F7F5EF;
     --line: #C9C2AF;
   }
@@ -24,6 +25,11 @@
   .sheet { max-width: 460px; margin: 0 auto; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; overflow: hidden; }
   .sheet-head { padding: 18px 20px; border-bottom: 1px solid var(--paper-line); }
   .title { font-family: "Yomogi", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; font-size: 20px; margin: 0; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .month-picker { display: flex; gap: 6px; overflow-x: auto; padding: 10px 20px; border-bottom: 1px solid var(--paper-line); background: var(--off); -webkit-overflow-scrolling: touch; }
+  .month-btn { flex: 0 0 auto; padding: 7px 13px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink-soft); background: #fff; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; white-space: nowrap; }
+  .month-btn.active { color: #fff; background: var(--work); border-color: var(--work); }
+
   .tabs { display: flex; border-bottom: 1px solid var(--paper-line); }
   .tab { flex: 1; padding: 11px 0; text-align: center; font-size: 13.5px; font-weight: 500; color: var(--ink-soft); background: var(--off); border: none; border-bottom: 2px solid transparent; cursor: pointer; }
   .tab.active { color: var(--ink); background: var(--paper); border-bottom: 2px solid var(--work); }
@@ -54,6 +60,8 @@
   .cell.state-paid .num, .cell.state-paid .mark { color: #fff; }
   .cell.state-work { background: var(--work); }
   .cell.state-work .num, .cell.state-work .mark { color: #fff; }
+  .cell.state-special { background: var(--special); }
+  .cell.state-special .num, .cell.state-special .mark { color: #fff; }
 
   .actions { display: flex; gap: 8px; margin-top: 16px; }
   .btn { flex: 1; padding: 11px 0; font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 3px; border: none; cursor: pointer; }
@@ -82,6 +90,7 @@
   .list-entry.off { color: var(--day-off); }
   .list-entry.paid { color: var(--paid-off); }
   .list-entry.work { color: var(--work); }
+  .list-entry.special { color: var(--special); }
   .empty-state { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 30px 10px; }
   .empty-state.hidden { display: none; }
 
@@ -89,11 +98,12 @@
   .line-hint { margin: 8px 0 4px; padding: 10px 12px; font-size: 12px; line-height: 1.6; color: var(--ink); background: var(--off); border: 1px solid var(--line); border-radius: 4px; }
   .line-hint.hidden { display: none; }
 
-  @page { size: A4; margin: 12mm; }
+  @page { size: A4 landscape; margin: 12mm; }
   @media print {
     body { background: #fff; }
     .sheet { border: none; max-width: 100%; break-inside: avoid; }
-    .tabs, .refresh-btn, .print-btn, .line-hint, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+    .month-picker, .tabs, .refresh-btn, .print-btn, .line-hint, #listMsg, .field-row, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+    #listCalendarGrid, #listWeekdayRow { grid-template-columns: repeat(7, var(--print-cell-mm, 1fr)); justify-content: start; }
   }
 </style>
 </head>
@@ -103,6 +113,8 @@
   <div class="sheet-head">
     <p class="title" id="pageTitle">読み込み中…</p>
   </div>
+
+  <div class="month-picker" id="monthPicker"></div>
 
   <div class="tabs">
     <button class="tab active" id="tabInput">入力</button>
@@ -119,6 +131,7 @@
       <span><span class="swatch" style="background:var(--day-off)"></span>公休</span>
       <span><span class="swatch" style="background:var(--paid-off)"></span>有休</span>
       <span><span class="swatch" style="background:var(--work)"></span>出勤</span>
+      <span><span class="swatch" style="background:var(--special)"></span>特別休暇</span>
       <span><span class="swatch" style="background:var(--unset-bg);border:1px solid var(--line)"></span>未定</span>
     </div>
 
@@ -138,14 +151,14 @@
     </div>
 
     <div class="share">
-      日付をタップすると 公休→有休→出勤→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでグループ全員分の希望が確認できます。
+      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→特別休暇→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。
     </div>
   </div>
 
   <div class="panel hidden" id="panelList">
     <button class="refresh-btn" id="refreshListBtn">最新の状態に更新</button>
     <div class="msg" id="listMsg"></div>
-    <button class="print-btn" id="printBtn">この一覧を印刷する</button>
+    <button class="print-btn" id="printBtn">この月の一覧を印刷する</button>
     <p class="line-hint hidden" id="lineHint">LINEの画面のまま印刷しようとすると反応しません。右上の「…」から「他のアプリで開く」または「Safari／Chromeで開く」を選んでから、もう一度お試しください。</p>
     <div class="grid" id="listWeekdayRow"></div>
     <div class="grid" id="listCalendarGrid"></div>
@@ -171,29 +184,67 @@ const db = getFirestore(firebaseApp);
 (function() {
   const params = new URLSearchParams(location.search);
   const groupId = (params.get("g") || "common").trim();
+  const MONTH_COUNT = 6;
 
   const now = new Date();
   const monthsAhead = now.getDate() >= 20 ? 2 : 1;
-  const next = new Date(now.getFullYear(), now.getMonth() + monthsAhead, 1);
-  const year = next.getFullYear();
-  const month = next.getMonth(); // 0-indexed
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthTag = year + "-" + String(month + 1).padStart(2, "0");
+  const base = new Date(now.getFullYear(), now.getMonth() + monthsAhead, 1);
+  const months = [];
+  for (let i = 0; i < MONTH_COUNT; i++) {
+    const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
+    months.push({ year: d.getFullYear(), month: d.getMonth() });
+  }
+  let selectedIndex = 0;
 
-  document.getElementById("pageTitle").textContent = year + "年" + (month + 1) + "月の勤務希望　グループ" + groupId;
-
-  const peopleCollection = collection(db, "groups", groupId, "months", monthTag, "people");
-
-  const STATES = ["unset", "off", "paid", "work"];
-  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出" };
-  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work" };
+  const STATES = ["unset", "off", "paid", "work", "special"];
+  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出", special: "特" };
+  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work", special: "state-special" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-  const firstWeekday = new Date(year, month, 1).getDay();
 
-  let dayStates = new Array(daysInMonth).fill("unset");
+  let year, month, daysInMonth, monthTag, firstWeekday, peopleCollection, draftKey;
+  let dayStates = [];
 
+  const pageTitle = document.getElementById("pageTitle");
   const nameInput = document.getElementById("nameInput");
-  const draftKey = "shiftDraft:" + groupId + ":" + monthTag;
+  const monthPicker = document.getElementById("monthPicker");
+
+  function buildMonthPicker() {
+    monthPicker.innerHTML = "";
+    months.forEach((m, i) => {
+      const btn = document.createElement("button");
+      btn.className = "month-btn" + (i === selectedIndex ? " active" : "");
+      const yearPrefix = m.year !== months[0].year ? String(m.year).slice(2) + "/" : "";
+      btn.textContent = yearPrefix + (m.month + 1) + "月";
+      btn.addEventListener("click", () => selectMonth(i));
+      monthPicker.appendChild(btn);
+    });
+  }
+
+  function applyMonthState() {
+    const m = months[selectedIndex];
+    year = m.year;
+    month = m.month;
+    daysInMonth = new Date(year, month + 1, 0).getDate();
+    monthTag = year + "-" + String(month + 1).padStart(2, "0");
+    firstWeekday = new Date(year, month, 1).getDay();
+    peopleCollection = collection(db, "groups", groupId, "months", monthTag, "people");
+    draftKey = "shiftDraft:" + groupId + ":" + monthTag;
+    dayStates = new Array(daysInMonth).fill("unset");
+    pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　グループ" + groupId;
+  }
+
+  function selectMonth(i) {
+    selectedIndex = i;
+    buildMonthPicker();
+    applyMonthState();
+    loadDraft();
+    render();
+    outputBox.classList.add("hidden");
+    setMsg(msg, "");
+    if (!panelList.classList.contains("hidden")) {
+      loadListFromFirestore();
+    }
+  }
 
   function saveDraft() {
     try {
@@ -210,7 +261,6 @@ const db = getFirestore(firebaseApp);
       if (d && typeof d.name === "string") nameInput.value = d.name;
     } catch (e) {}
   }
-  loadDraft();
 
   function buildWeekdayRow(container) {
     container.innerHTML = "";
@@ -247,7 +297,6 @@ const db = getFirestore(firebaseApp);
       grid.appendChild(cell);
     }
   }
-  render();
 
   nameInput.addEventListener("input", saveDraft);
 
@@ -284,7 +333,7 @@ const db = getFirestore(firebaseApp);
       const text = pairs.length > 0 ? (name + " " + monthTag + ": " + pairs.join(" ")) : (name + " " + monthTag + ": 希望なし");
       submitText.value = text;
       outputBox.classList.remove("hidden");
-      setMsg(msg, pairs.length > 0 ? "保存しました。一覧タブでグループ全員分の希望が確認できます。" : "保存しました（希望なしとして記録されました）。", "ok");
+      setMsg(msg, pairs.length > 0 ? "保存しました。一覧タブでこの月・グループ全員分の希望が確認できます。" : "保存しました（希望なしとして記録されました）。", "ok");
     } catch (e) {
       setMsg(msg, "保存に失敗しました。通信環境を確認してもう一度お試しください。", "err");
       outputBox.classList.add("hidden");
@@ -349,16 +398,22 @@ const db = getFirestore(firebaseApp);
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  let lastEntries = [];
+
   async function loadListFromFirestore() {
+    const requestedMonthTag = monthTag;
     setMsg(listMsg, "読み込み中…");
     try {
       const snap = await getDocs(peopleCollection);
+      if (requestedMonthTag !== monthTag) return; // user switched month while loading
       const entries = [];
       snap.forEach((d) => {
         const data = d.data();
         entries.push({ name: data.name, states: data.states || [] });
       });
       await fontsReady;
+      if (requestedMonthTag !== monthTag) return;
+      lastEntries = entries;
       renderListGrid(entries);
       if (entries.length === 0) {
         setMsg(listMsg, "");
@@ -371,7 +426,7 @@ const db = getFirestore(firebaseApp);
     }
   }
 
-  const STATE_ORDER = { off: 0, paid: 1, work: 2 };
+  const STATE_ORDER = { off: 0, paid: 1, work: 2, special: 3 };
   const TWO_COL_THRESHOLD = 5;
   const CELL_GAP = 4;
   const CELL_H_PADDING = 4;
@@ -406,7 +461,7 @@ const db = getFirestore(firebaseApp);
     return 4.2;
   }
 
-  function renderListGrid(entries) {
+  function renderListGrid(entries, cellSizeOverride) {
     listGrid.innerHTML = "";
     if (entries.length === 0) {
       listEmptyState.classList.remove("hidden");
@@ -419,7 +474,7 @@ const db = getFirestore(firebaseApp);
       listGrid.appendChild(empty);
     }
     const gridWidth = listGrid.clientWidth || 460;
-    const cellSize = (gridWidth - 6 * CELL_GAP) / 7;
+    const cellSize = cellSizeOverride || (gridWidth - 6 * CELL_GAP) / 7;
     const availableHeight = cellSize - DAYNUM_HEIGHT - CELL_V_PADDING;
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement("div");
@@ -488,7 +543,52 @@ const db = getFirestore(firebaseApp);
     window.print();
   });
 
+  // A4 landscape print sizing: pick the smaller of (page width / 7 columns)
+  // or (page height / rows this month needs), so a 6-row month never spills
+  // onto a second page. Every measurement below is a fixed constant derived
+  // from this page's own CSS (padding, line-height, font-size), not a live
+  // getBoundingClientRect() read — beforeprint does not reliably reflect the
+  // real print page's geometry in every browser, so a live read was quietly
+  // producing much smaller cells than the math intended.
+  const PX_PER_MM = 96 / 25.4;
+  const PRINT_PAGE_W_MM = 273; // A4 landscape width minus 12mm margins left+right
+  const PRINT_PAGE_H_MM = 186; // A4 landscape height minus 12mm margins top+bottom
+  const PRINT_GAP_MM = CELL_GAP * (25.4 / 96);
+  const PANEL_H_PADDING_MM = 18 * (25.4 / 96) * 2; // .panel's left+right padding
+  const PANEL_BOTTOM_PADDING_MM = 22 * (25.4 / 96);
+  // Distance from the top of .sheet to the top of the calendar grid:
+  // sheet-head (18px+18px padding, 20px title at 1.3 line-height, 1px
+  // border) + .panel's 18px top padding + weekday row (11.5px font + 4px
+  // padding) + its 6px margin-bottom. Measured against the real rendered
+  // page at ~28.7mm; rounded up slightly for headroom.
+  const PRINT_HEADER_MM = 29;
+  const PRINT_SAFETY_MM = 2;
+
+  function applyPrintSizing() {
+    const rows = Math.ceil((firstWeekday + daysInMonth) / 7);
+
+    const cellFromWidthMM = (PRINT_PAGE_W_MM - PANEL_H_PADDING_MM - 6 * PRINT_GAP_MM) / 7;
+    const availableHeightMM = PRINT_PAGE_H_MM - PRINT_HEADER_MM - PANEL_BOTTOM_PADDING_MM - PRINT_SAFETY_MM - (rows - 1) * PRINT_GAP_MM;
+    const cellFromHeightMM = availableHeightMM / rows;
+    const cellMM = Math.max(4, Math.min(cellFromWidthMM, cellFromHeightMM));
+
+    document.documentElement.style.setProperty("--print-cell-mm", cellMM + "mm");
+    renderListGrid(lastEntries, cellMM * PX_PER_MM);
+  }
+
+  function restoreScreenSizing() {
+    renderListGrid(lastEntries);
+  }
+
+  window.addEventListener("beforeprint", applyPrintSizing);
+  window.addEventListener("afterprint", restoreScreenSizing);
+
   document.getElementById("refreshListBtn").addEventListener("click", loadListFromFirestore);
+
+  buildMonthPicker();
+  applyMonthState();
+  loadDraft();
+  render();
 })();
 </script>
 
