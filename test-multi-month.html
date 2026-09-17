@@ -204,6 +204,60 @@ const db = getFirestore(firebaseApp);
   const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work", special: "state-special" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
+  // 希望休（公休）の上限計算。基本の休みは第1〜4土曜・第1〜4日曜
+  // （日曜だけ第5があれば+1）＋祝日。上限はその合計の半分（切り捨て）。
+  function countWeekdayOccurrences(y, m, targetDow) {
+    const dim = new Date(y, m + 1, 0).getDate();
+    let count = 0;
+    for (let d = 1; d <= dim; d++) {
+      if (new Date(y, m, d).getDay() === targetDow) count++;
+    }
+    return count;
+  }
+
+  function baseSatSunCount(y, m) {
+    const satCount = countWeekdayOccurrences(y, m, 6);
+    const sunCount = countWeekdayOccurrences(y, m, 0);
+    return { sat: Math.min(satCount, 4), sun: sunCount >= 5 ? 5 : sunCount };
+  }
+
+  // 月ごとの祝日数（土日にかぶらない分だけ／振替休日は加算済み）。
+  // 表示中の期間より先の月は未登録のため、必要になったら追加すること。
+  const EXTRA_HOLIDAYS = {
+    "2026-10": 1, // スポーツの日(10/12)
+    "2026-11": 2, // 文化の日(11/3)・勤労感謝の日(11/23)
+    "2026-12": 0,
+    "2027-01": 2, // 元日(1/1)・成人の日(1/11)
+    "2027-02": 2, // 建国記念の日(2/11)・天皇誕生日(2/23)
+    "2027-03": 1  // 春分の日(3/21)は日曜と重複のため加算なし、振替休日(3/22)のみ加算
+  };
+
+  // お盆休み(8/15・8/16)だけの職場独自ルール：平日なら加算、日曜または
+  // 第1・第3土曜と重なる場合は加算なし、第2・第4土曜と重なる場合は加算する。
+  function obonExtra(y, m) {
+    if (m !== 7) return 0; // 8月のみ (0-indexed)
+    let extra = 0;
+    for (const day of [15, 16]) {
+      const dow = new Date(y, m, day).getDay();
+      if (dow === 0) continue;
+      if (dow === 6) {
+        const nth = Math.ceil(day / 7);
+        if (nth === 1 || nth === 3) continue;
+        extra += 1;
+      } else {
+        extra += 1;
+      }
+    }
+    return extra;
+  }
+
+  function calcOffCap(y, m) {
+    const { sat, sun } = baseSatSunCount(y, m);
+    const tag = y + "-" + String(m + 1).padStart(2, "0");
+    const holidays = (EXTRA_HOLIDAYS[tag] || 0) + obonExtra(y, m);
+    return Math.floor((sat + sun + holidays) / 2);
+  }
+
   let year, month, daysInMonth, monthTag, firstWeekday, peopleCollection, draftKey;
   let dayStates = [];
 
@@ -233,7 +287,7 @@ const db = getFirestore(firebaseApp);
     peopleCollection = collection(db, "groups", groupId, "months", monthTag, "people");
     draftKey = "shiftDraft:" + groupId + ":" + monthTag;
     dayStates = new Array(daysInMonth).fill("unset");
-    pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　グループ" + groupId;
+    pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　" + groupId + "チーム";
   }
 
   function selectMonth(i) {

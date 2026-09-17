@@ -230,7 +230,7 @@ const db = getFirestore(firebaseApp);
     peopleCollection = collection(db, "groups", groupId, "months", monthTag, "people");
     draftKey = "shiftDraft:" + groupId + ":" + monthTag;
     dayStates = new Array(daysInMonth).fill("unset");
-    pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　グループ" + groupId;
+    pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　" + groupId + "チーム";
   }
 
   function selectMonth(i) {
