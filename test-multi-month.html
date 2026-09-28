@@ -17,6 +17,7 @@
     --paid-off: #2F6F63;
     --work: #C1702C;
     --special: #8B4C6B;
+    --trip: #3D6EA5;
     --unset-bg: #F7F5EF;
     --line: #C9C2AF;
   }
@@ -62,6 +63,8 @@
   .cell.state-work .num, .cell.state-work .mark { color: #fff; }
   .cell.state-special { background: var(--special); }
   .cell.state-special .num, .cell.state-special .mark { color: #fff; }
+  .cell.state-trip { background: var(--trip); }
+  .cell.state-trip .num, .cell.state-trip .mark { color: #fff; }
 
   .actions { display: flex; gap: 8px; margin-top: 16px; }
   .btn { flex: 1; padding: 11px 0; font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 3px; border: none; cursor: pointer; }
@@ -91,6 +94,7 @@
   .list-entry.paid { color: var(--paid-off); }
   .list-entry.work { color: var(--work); }
   .list-entry.special { color: var(--special); }
+  .list-entry.trip { color: var(--trip); }
   .empty-state { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 30px 10px; }
   .empty-state.hidden { display: none; }
 
@@ -134,6 +138,7 @@
       <span><span class="swatch" style="background:var(--day-off)"></span>公休</span>
       <span><span class="swatch" style="background:var(--paid-off)"></span>有休</span>
       <span><span class="swatch" style="background:var(--work)"></span>出勤</span>
+      <span><span class="swatch" style="background:var(--trip)"></span>出張</span>
       <span><span class="swatch" style="background:var(--special)"></span>特別休暇</span>
       <span><span class="swatch" style="background:var(--unset-bg);border:1px solid var(--line)"></span>未定</span>
     </div>
@@ -154,7 +159,7 @@
     </div>
 
     <div class="share">
-      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→特別休暇→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。
+      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→出張→特別休暇→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。
     </div>
   </div>
 
@@ -199,9 +204,9 @@ const db = getFirestore(firebaseApp);
   }
   let selectedIndex = 0;
 
-  const STATES = ["unset", "off", "paid", "work", "special"];
-  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出", special: "特" };
-  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work", special: "state-special" };
+  const STATES = ["unset", "off", "paid", "work", "trip", "special"];
+  const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出", trip: "出張", special: "特" };
+  const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work", trip: "state-trip", special: "state-special" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
   // 希望休（公休）の上限計算。基本の休みは第1〜4土曜・第1〜4日曜
@@ -483,7 +488,7 @@ const db = getFirestore(firebaseApp);
     }
   }
 
-  const STATE_ORDER = { off: 0, paid: 1, work: 2, special: 3 };
+  const STATE_ORDER = { off: 0, paid: 1, work: 2, trip: 3, special: 4 };
   const TWO_COL_THRESHOLD = 5;
   const CELL_GAP = 4;
   const CELL_H_PADDING = 4;
