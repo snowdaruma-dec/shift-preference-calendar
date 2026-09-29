@@ -543,7 +543,7 @@ const db = getFirestore(firebaseApp);
     if (dayEntries.length === 1) return oneCol;
     const sorted = dayEntries.slice().sort((a, b) => STATE_ORDER[a.states[d - 1]] - STATE_ORDER[b.states[d - 1]]);
     const twoCol = tryLayout(sorted, d, 2, cellSize, availableHeight);
-    return twoCol.fontSize >= oneCol.fontSize ? twoCol : oneCol;
+    return twoCol.fontSize > oneCol.fontSize ? twoCol : oneCol;
   }
 
   function renderListGrid(entries, cellSizeOverride) {
