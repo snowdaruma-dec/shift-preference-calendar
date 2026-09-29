@@ -488,7 +488,6 @@ const db = getFirestore(firebaseApp);
   }
 
   const STATE_ORDER = { off: 0, paid: 1, work: 2, trip: 3, special: 4 };
-  const TWO_COL_THRESHOLD = 5;
   const CELL_GAP = 4;
   const CELL_H_PADDING = 4;
   const CELL_V_PADDING = 5;
@@ -522,7 +521,32 @@ const db = getFirestore(firebaseApp);
     return 4.2;
   }
 
-  function renderListGrid(entries, cellSizeOverride, forPrint) {
+  function formatEntry(entry, state) {
+    return entry.name + "(" + STATE_LABEL[state] + ")";
+  }
+
+  function tryLayout(list, d, cols, cellSize, availableHeight) {
+    const rows = Math.ceil(list.length / cols);
+    const colWidth = cols === 1
+      ? cellSize - CELL_H_PADDING
+      : (cellSize - CELL_H_PADDING - COL_GAP) / 2;
+    const texts = list.map((entry) => formatEntry(entry, entry.states[d - 1]));
+    const fontSize = bestFontSize(texts, colWidth, availableHeight, rows, 9.5);
+    return { cols, rows, fontSize, list };
+  }
+
+  // 1列と2列、それぞれで収まる最大の文字サイズを計算し、大きい方を採用する。
+  // 括弧付きの表記は幅を取るため、人数が多くても1列の方が大きくできることがある。
+  function chooseDayLayout(dayEntries, d, cellSize, availableHeight) {
+    if (dayEntries.length === 0) return null;
+    const oneCol = tryLayout(dayEntries, d, 1, cellSize, availableHeight);
+    if (dayEntries.length === 1) return oneCol;
+    const sorted = dayEntries.slice().sort((a, b) => STATE_ORDER[a.states[d - 1]] - STATE_ORDER[b.states[d - 1]]);
+    const twoCol = tryLayout(sorted, d, 2, cellSize, availableHeight);
+    return twoCol.fontSize >= oneCol.fontSize ? twoCol : oneCol;
+  }
+
+  function renderListGrid(entries, cellSizeOverride) {
     listGrid.innerHTML = "";
     if (entries.length === 0) {
       listEmptyState.classList.remove("hidden");
@@ -540,28 +564,18 @@ const db = getFirestore(firebaseApp);
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement("div");
       cell.className = "list-cell";
-      let dayEntries = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
-      const crowded = dayEntries.length >= TWO_COL_THRESHOLD;
-      if (crowded) {
-        dayEntries = dayEntries.slice().sort((a, b) => STATE_ORDER[a.states[d - 1]] - STATE_ORDER[b.states[d - 1]]);
-      }
-      const cols = crowded ? 2 : 1;
-      const rows = Math.ceil(dayEntries.length / cols) || 1;
-      const colWidth = cols === 1
-        ? cellSize - CELL_H_PADDING
-        : (cellSize - CELL_H_PADDING - COL_GAP) / 2;
-      const formatEntry = (entry, state) => entry.name + "(" + STATE_LABEL[state] + ")";
-      const texts = dayEntries.map((entry) => formatEntry(entry, entry.states[d - 1]));
-      const fontSize = texts.length
-        ? bestFontSize(texts, colWidth, availableHeight, rows, 9.5)
-        : 9.5;
+      const dayEntriesRaw = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
+      const layout = chooseDayLayout(dayEntriesRaw, d, cellSize, availableHeight);
       let html = '<span class="daynum">' + d + "</span>";
-      html += '<div class="list-entries' + (crowded ? " cols2" : "") + '" style="grid-template-rows:repeat(' + rows + ',auto)">';
-      for (const entry of dayEntries) {
-        const state = entry.states[d - 1];
-        html += '<span class="list-entry ' + state + '" style="font-size:' + fontSize + 'px">' + escapeHtml(formatEntry(entry, state)) + "</span>";
+      if (layout) {
+        const crowded = layout.cols === 2;
+        html += '<div class="list-entries' + (crowded ? " cols2" : "") + '" style="grid-template-rows:repeat(' + layout.rows + ',auto)">';
+        for (const entry of layout.list) {
+          const state = entry.states[d - 1];
+          html += '<span class="list-entry ' + state + '" style="font-size:' + layout.fontSize + 'px">' + escapeHtml(formatEntry(entry, state)) + "</span>";
+        }
+        html += "</div>";
       }
-      html += "</div>";
       cell.innerHTML = html;
       listGrid.appendChild(cell);
     }
@@ -634,7 +648,7 @@ const db = getFirestore(firebaseApp);
     const cellMM = Math.max(4, Math.min(cellFromWidthMM, cellFromHeightMM));
 
     document.documentElement.style.setProperty("--print-cell-mm", cellMM + "mm");
-    renderListGrid(lastEntries, cellMM * PX_PER_MM, true);
+    renderListGrid(lastEntries, cellMM * PX_PER_MM);
   }
 
   function restoreScreenSizing() {
