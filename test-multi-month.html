@@ -34,7 +34,7 @@
   .sheet[data-season="autumn"] { --season-tint: #F3E7D8; }
 
   .season-icon-corner { position: absolute; top: 14px; right: 16px; font-size: 26px; line-height: 1; pointer-events: none; }
-  .season-icon-deco { aspect-ratio: auto; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .season-icon-deco { display: flex; align-items: center; justify-content: center; font-size: 22px; }
   .sheet-head { position: relative; padding: 18px 20px; border-bottom: 1px solid var(--paper-line); }
   .title { font-family: "Yomogi", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; font-size: 20px; margin: 0; padding-right: 36px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -419,12 +419,11 @@ const db = getFirestore(firebaseApp);
       grid.appendChild(cell);
     }
     const trailingEmpty = (7 - ((firstWeekday + daysInMonth) % 7)) % 7;
-    if (trailingEmpty > 0) {
-      const deco = document.createElement("div");
-      deco.className = "cell empty season-icon-deco";
-      deco.style.gridColumn = (8 - trailingEmpty) + " / 8";
-      deco.textContent = SEASON_ICON[seasonForMonth(month)];
-      grid.appendChild(deco);
+    for (let i = 0; i < trailingEmpty; i++) {
+      const empty = document.createElement("div");
+      empty.className = "cell empty" + (i === 0 ? " season-icon-deco" : "");
+      if (i === 0) empty.textContent = SEASON_ICON[seasonForMonth(month)];
+      grid.appendChild(empty);
     }
   }
 
