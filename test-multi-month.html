@@ -69,6 +69,7 @@
   .cell.locked .num { color: var(--ink-soft); opacity: 0.7; }
   .cell .num { font-size: 11px; color: var(--ink-soft); line-height: 1; }
   .cell .num.holiday { color: #B5504E; }
+  .cell .num.saturday { color: #3E6FA6; }
   .cell .mark { font-size: 13px; font-weight: 700; line-height: 1.4; }
   .cell.state-off { background: var(--day-off); }
   .cell.state-off .num, .cell.state-off .mark { color: #fff; }
@@ -102,6 +103,8 @@
 
   .list-cell { aspect-ratio: 1; min-width: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); padding: 2px 2px 3px; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
   .list-cell .daynum { font-size: 9.5px; color: var(--ink-soft); line-height: 1.2; flex: 0 0 auto; }
+  .list-cell .daynum.holiday { color: #B5504E; }
+  .list-cell .daynum.saturday { color: #3E6FA6; }
   .list-entries { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .list-entries.cols2 { display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr; column-gap: 3px; }
   .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -239,6 +242,9 @@ const db = getFirestore(firebaseApp);
     if (new Date(y, m, day).getDay() === 0) return true;
     const tag = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
     return JAPAN_HOLIDAYS.has(tag);
+  }
+  function isSaturday(y, m, day) {
+    return new Date(y, m, day).getDay() === 6;
   }
 
   // 日曜と第1・第3土曜は有休を選べない。年末年始（12/29〜1/3）は
@@ -421,8 +427,10 @@ const db = getFirestore(firebaseApp);
       const cell = document.createElement("div");
       const locked = isYearEndLocked(d);
       const holiday = isSundayOrHoliday(year, month, d);
+      const saturday = isSaturday(year, month, d);
+      const numClass = holiday ? " holiday" : saturday ? " saturday" : "";
       cell.className = "cell " + STATE_CLASS[state] + (locked ? " locked" : "");
-      cell.innerHTML = '<span class="num' + (holiday ? " holiday" : "") + '">' + d + '</span><span class="mark">' + (locked ? "" : STATE_LABEL[state]) + '</span>';
+      cell.innerHTML = '<span class="num' + numClass + '">' + d + '</span><span class="mark">' + (locked ? "" : STATE_LABEL[state]) + '</span>';
       if (!locked) {
         cell.addEventListener("click", () => {
           const idx = STATES.indexOf(dayStates[d - 1]);
@@ -653,7 +661,8 @@ const db = getFirestore(firebaseApp);
       cell.className = "list-cell";
       const dayEntriesRaw = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
       const layout = chooseDayLayout(dayEntriesRaw, d, cellSize, availableHeight);
-      let html = '<span class="daynum">' + d + "</span>";
+      const dayNumClass = isSundayOrHoliday(year, month, d) ? " holiday" : isSaturday(year, month, d) ? " saturday" : "";
+      let html = '<span class="daynum' + dayNumClass + '">' + d + "</span>";
       if (layout) {
         const crowded = layout.cols === 2;
         html += '<div class="list-entries' + (crowded ? " cols2" : "") + '" style="grid-template-rows:repeat(' + layout.rows + ',auto)">';
