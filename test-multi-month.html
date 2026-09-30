@@ -53,6 +53,9 @@
   .cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 3px; background: var(--unset-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; user-select: none; transition: background 0.12s ease, transform 0.06s ease; }
   .cell:active { transform: scale(0.94); }
   .cell.empty { border: none; background: transparent; cursor: default; }
+  .cell.locked { cursor: not-allowed; background: repeating-linear-gradient(45deg, var(--unset-bg), var(--unset-bg) 4px, var(--paper-line) 4px, var(--paper-line) 8px); }
+  .cell.locked:active { transform: none; }
+  .cell.locked .num { color: var(--ink-soft); opacity: 0.7; }
   .cell .num { font-size: 11px; color: var(--ink-soft); line-height: 1; }
   .cell .mark { font-size: 13px; font-weight: 700; line-height: 1.4; }
   .cell.state-off { background: var(--day-off); }
@@ -158,7 +161,7 @@
     </div>
 
     <div class="share">
-      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→出張→特別休暇→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。
+      上のボタンで月を切り替えられます。日付をタップすると 公休→有休→出勤→出張→特別休暇→未定 の順に切り替わります。「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。日曜と第1・第3土曜は有休を選べません。年末年始(12/29〜1/3)は別に勤務表を作るため入力できません(縞模様のマス)。
     </div>
   </div>
 
@@ -207,6 +210,32 @@ const db = getFirestore(firebaseApp);
   const STATE_LABEL = { unset: "", off: "公", paid: "有", work: "出", trip: "出張", special: "特" };
   const STATE_CLASS = { unset: "", off: "state-off", paid: "state-paid", work: "state-work", trip: "state-trip", special: "state-special" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+  // 日曜と第1・第3土曜は有休を選べない。年末年始（12/29〜1/3）は
+  // 別に勤務表を作るため、この画面からの入力自体を受け付けない。
+  function isPaidRestricted(day) {
+    const dow = new Date(year, month, day).getDay();
+    if (dow === 0) return true;
+    if (dow === 6) {
+      const nth = Math.ceil(day / 7);
+      return nth === 1 || nth === 3;
+    }
+    return false;
+  }
+
+  function isYearEndLocked(day) {
+    return (month === 11 && day >= 29) || (month === 0 && day <= 3);
+  }
+
+  function sanitizeDayStates() {
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (isYearEndLocked(d) && dayStates[d - 1] !== "unset") {
+        dayStates[d - 1] = "unset";
+      } else if (dayStates[d - 1] === "paid" && isPaidRestricted(d)) {
+        dayStates[d - 1] = "unset";
+      }
+    }
+  }
 
   // 希望休（公休）の上限計算。基本の休みは第1〜4土曜・第1〜4日曜
   // （日曜だけ第5があれば+1）＋祝日。上限はその合計の半分（切り捨て）。
@@ -299,6 +328,7 @@ const db = getFirestore(firebaseApp);
     buildMonthPicker();
     applyMonthState();
     loadDraft();
+    sanitizeDayStates();
     render();
     outputBox.classList.add("hidden");
     setMsg(msg, "");
@@ -347,14 +377,21 @@ const db = getFirestore(firebaseApp);
     for (let d = 1; d <= daysInMonth; d++) {
       const state = dayStates[d - 1];
       const cell = document.createElement("div");
-      cell.className = "cell " + STATE_CLASS[state];
-      cell.innerHTML = '<span class="num">' + d + '</span><span class="mark">' + STATE_LABEL[state] + '</span>';
-      cell.addEventListener("click", () => {
-        const idx = STATES.indexOf(dayStates[d - 1]);
-        dayStates[d - 1] = STATES[(idx + 1) % STATES.length];
-        render();
-        saveDraft();
-      });
+      const locked = isYearEndLocked(d);
+      cell.className = "cell " + STATE_CLASS[state] + (locked ? " locked" : "");
+      cell.innerHTML = '<span class="num">' + d + '</span><span class="mark">' + (locked ? "" : STATE_LABEL[state]) + '</span>';
+      if (!locked) {
+        cell.addEventListener("click", () => {
+          const idx = STATES.indexOf(dayStates[d - 1]);
+          let nextIdx = (idx + 1) % STATES.length;
+          if (STATES[nextIdx] === "paid" && isPaidRestricted(d)) {
+            nextIdx = (nextIdx + 1) % STATES.length;
+          }
+          dayStates[d - 1] = STATES[nextIdx];
+          render();
+          saveDraft();
+        });
+      }
       grid.appendChild(cell);
     }
   }
@@ -663,6 +700,7 @@ const db = getFirestore(firebaseApp);
   buildMonthPicker();
   applyMonthState();
   loadDraft();
+  sanitizeDayStates();
   render();
 })();
 </script>
