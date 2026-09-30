@@ -193,7 +193,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, deleteDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmY2HqcpJTV4CRND5g7tvO__ARxjUBpjM",
@@ -462,12 +462,26 @@ const db = getFirestore(firebaseApp);
     }
   });
 
-  document.getElementById("clearBtn").addEventListener("click", () => {
+  document.getElementById("clearBtn").addEventListener("click", async () => {
+    const name = nameInput.value.trim();
     dayStates = new Array(daysInMonth).fill("unset");
     render();
     outputBox.classList.add("hidden");
-    setMsg(msg, "入力をリセットしました。");
     try { localStorage.removeItem(draftKey); } catch (e) {}
+    if (!name) {
+      setMsg(msg, "入力をリセットしました。");
+      return;
+    }
+    setMsg(msg, "消去しています…");
+    try {
+      await deleteDoc(doc(peopleCollection, encodeURIComponent(name)));
+      setMsg(msg, name + "さんの入力を消去しました。一覧からも削除されました。", "ok");
+      if (!panelList.classList.contains("hidden")) {
+        loadListFromFirestore();
+      }
+    } catch (e) {
+      setMsg(msg, "入力はリセットしましたが、一覧からの削除に失敗しました。通信環境を確認してもう一度お試しください。", "err");
+    }
   });
 
   document.getElementById("copyBtn").addEventListener("click", async () => {
