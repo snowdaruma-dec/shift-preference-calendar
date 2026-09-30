@@ -23,8 +23,20 @@
   }
   * { box-sizing: border-box; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { margin: 0; font-family: "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; background: transparent; color: var(--ink); }
-  .sheet { max-width: 460px; margin: 0 auto; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; overflow: hidden; }
-  .sheet-head { padding: 18px 20px; border-bottom: 1px solid var(--paper-line); }
+  .sheet {
+    max-width: 460px; margin: 0 auto; border: 1px solid var(--paper-line); border-radius: 4px; overflow: hidden;
+    background-color: var(--season-tint, var(--paper));
+  }
+  /* 季節の色味（現在はグループ7のみ有効）。カレンダーのマスは自前の背景色を持つため影響を受けない。 */
+  .sheet[data-season="winter"] { --season-tint: #E7EDF3; }
+  .sheet[data-season="spring"] { --season-tint: #F7ECF0; }
+  .sheet[data-season="summer"] { --season-tint: #EAF3EC; }
+  .sheet[data-season="autumn"] { --season-tint: #F3E7D8; }
+
+  .season-icon-corner { position: absolute; top: 14px; right: 16px; font-size: 26px; line-height: 1; pointer-events: none; }
+  .season-icon-deco { display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .sheet-head { position: relative; padding: 18px 20px; border-bottom: 1px solid var(--paper-line); }
+  .sheet-head.has-season-icon .title { padding-right: 36px; }
   .title { font-family: "Yomogi", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; font-size: 20px; margin: 0; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .month-picker { display: flex; gap: 6px; overflow-x: auto; padding: 10px 20px; border-bottom: 1px solid var(--paper-line); background: var(--off); -webkit-overflow-scrolling: touch; }
@@ -122,8 +134,9 @@
 <body>
 
 <div class="sheet">
-  <div class="sheet-head">
+  <div class="sheet-head" id="sheetHead">
     <p class="title" id="pageTitle">読み込み中…</p>
+    <span class="season-icon-corner" id="seasonIconCorner"></span>
   </div>
 
   <div class="month-picker" id="monthPicker"></div>
@@ -197,6 +210,9 @@ const db = getFirestore(firebaseApp);
   const params = new URLSearchParams(location.search);
   const groupId = (params.get("g") || "common").trim();
   const MONTH_COUNT = 6;
+  // 季節の背景色と絵文字は、現時点ではグループ7のみで有効にする。
+  const SEASON_THEME_GROUPS = new Set(["7"]);
+  const seasonThemeEnabled = SEASON_THEME_GROUPS.has(groupId);
 
   const now = new Date();
   const monthsAhead = now.getDate() >= 20 ? 2 : 1;
@@ -275,6 +291,16 @@ const db = getFirestore(firebaseApp);
   const nameInput = document.getElementById("nameInput");
   const monthPicker = document.getElementById("monthPicker");
 
+  function seasonForMonth(m) {
+    if (m === 11 || m === 0 || m === 1) return "winter";
+    if (m >= 2 && m <= 4) return "spring";
+    if (m >= 5 && m <= 7) return "summer";
+    return "autumn";
+  }
+  const MONTH_ICON = { 0: "🎍", 1: "⛄", 2: "🎎", 3: "🌸", 4: "🎏", 5: "☔", 6: "🎋", 7: "🍉", 8: "🎑", 9: "🎃", 10: "🍁", 11: "🎄" };
+  const sheetHead = document.getElementById("sheetHead");
+  const seasonIconCorner = document.getElementById("seasonIconCorner");
+
   function buildMonthPicker() {
     monthPicker.innerHTML = "";
     months.forEach((m, i) => {
@@ -298,6 +324,12 @@ const db = getFirestore(firebaseApp);
     draftKey = "shiftDraft:" + groupId + ":" + monthTag;
     dayStates = new Array(daysInMonth).fill("unset");
     pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　" + groupId + "チーム";
+    if (seasonThemeEnabled) {
+      const season = seasonForMonth(month);
+      document.querySelector(".sheet").dataset.season = season;
+      seasonIconCorner.textContent = MONTH_ICON[month];
+      sheetHead.classList.add("has-season-icon");
+    }
   }
 
   function selectMonth(i) {
@@ -376,6 +408,15 @@ const db = getFirestore(firebaseApp);
         });
       }
       grid.appendChild(cell);
+    }
+    if (seasonThemeEnabled) {
+      const trailingEmpty = (7 - ((firstWeekday + daysInMonth) % 7)) % 7;
+      for (let i = 0; i < trailingEmpty; i++) {
+        const empty = document.createElement("div");
+        empty.className = "cell empty" + (i === 0 ? " season-icon-deco" : "");
+        if (i === 0) empty.textContent = MONTH_ICON[month];
+        grid.appendChild(empty);
+      }
     }
   }
 
