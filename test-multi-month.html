@@ -108,7 +108,7 @@
   .list-cell .daynum.saturday { color: #3E6FA6; }
   .list-entries { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .list-entries.cols2 { display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr; column-gap: 3px; }
-  .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list-entry.off { color: var(--day-off); }
   .list-entry.paid { color: var(--paid-off); }
   .list-entry.work { color: var(--work); }
@@ -615,7 +615,8 @@ const db = getFirestore(firebaseApp);
   const CELL_V_PADDING = 5;
   const DAYNUM_HEIGHT = 9.5 * 1.2;
   const COL_GAP = 3;
-  const ENTRY_LINE_HEIGHT = 1.05;
+  const ENTRY_LINE_HEIGHT = 1.15;
+  const HEIGHT_SAFETY = 0.95;
   const measureCtx = document.createElement("canvas").getContext("2d");
   const fontsReady = (document.fonts && document.fonts.load)
     ? Promise.all([
@@ -636,7 +637,7 @@ const db = getFirestore(firebaseApp);
     while (size > 4.2) {
       const widest = Math.max(...texts.map((t) => measureWidth(t, size)));
       const fitsWidth = widest <= colWidth * WIDTH_SAFETY;
-      const fitsHeight = size * ENTRY_LINE_HEIGHT * rows <= availableHeight;
+      const fitsHeight = size * ENTRY_LINE_HEIGHT * rows <= availableHeight * HEIGHT_SAFETY;
       if (fitsWidth && fitsHeight) return size;
       size -= 0.2;
     }
