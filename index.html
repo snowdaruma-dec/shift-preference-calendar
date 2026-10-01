@@ -109,7 +109,7 @@
   .list-cell .daynum.saturday { color: #3E6FA6; }
   .list-entries { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .list-entries.cols2 { display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr; column-gap: 3px; }
-  .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-entry { display: block; min-width: 0; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list-entry.off { color: var(--day-off); }
   .list-entry.paid { color: var(--paid-off); }
   .list-entry.work { color: var(--work); }
@@ -568,7 +568,12 @@ const db = getFirestore(firebaseApp);
   const CELL_V_PADDING = 5;
   const DAYNUM_HEIGHT = 9.5 * 1.2;
   const COL_GAP = 3;
-  const ENTRY_LINE_HEIGHT = 1.05;
+  const ENTRY_LINE_HEIGHT = 1.3;
+  const HEIGHT_SAFETY = 0.95;
+  // 印刷は十分大きいマスで元々余裕があるため対象外。画面表示は人数が多く
+  // 文字が小さくなるほど、固定の割合の余白では端末ごとの描画差を吸収しきれない
+  // ことがあるため、行ごとに固定ピクセルの余白を追加で確保する。
+  const SCREEN_ROW_BUFFER_PX = 1.0;
   const measureCtx = document.createElement("canvas").getContext("2d");
   const fontsReady = (document.fonts && document.fonts.load)
     ? Promise.all([
@@ -584,12 +589,13 @@ const db = getFirestore(firebaseApp);
 
   const WIDTH_SAFETY = 0.93;
 
-  function bestFontSize(texts, colWidth, availableHeight, rows, maxSize) {
+  function bestFontSize(texts, colWidth, availableHeight, rows, maxSize, forPrint) {
+    const rowBuffer = forPrint ? 0 : rows * SCREEN_ROW_BUFFER_PX;
     let size = maxSize;
     while (size > 4.2) {
       const widest = Math.max(...texts.map((t) => measureWidth(t, size)));
       const fitsWidth = widest <= colWidth * WIDTH_SAFETY;
-      const fitsHeight = size * ENTRY_LINE_HEIGHT * rows <= availableHeight;
+      const fitsHeight = size * ENTRY_LINE_HEIGHT * rows + rowBuffer <= availableHeight * HEIGHT_SAFETY;
       if (fitsWidth && fitsHeight) return size;
       size -= 0.2;
     }
@@ -600,28 +606,28 @@ const db = getFirestore(firebaseApp);
     return entry.name + "(" + STATE_LABEL[state] + ")";
   }
 
-  function tryLayout(list, d, cols, cellSize, availableHeight) {
+  function tryLayout(list, d, cols, cellSize, availableHeight, forPrint) {
     const rows = Math.ceil(list.length / cols);
     const colWidth = cols === 1
       ? cellSize - CELL_H_PADDING
       : (cellSize - CELL_H_PADDING - COL_GAP) / 2;
     const texts = list.map((entry) => formatEntry(entry, entry.states[d - 1]));
-    const fontSize = bestFontSize(texts, colWidth, availableHeight, rows, 9.5);
+    const fontSize = bestFontSize(texts, colWidth, availableHeight, rows, 9.5, forPrint);
     return { cols, rows, fontSize, list };
   }
 
   // 1列と2列、それぞれで収まる最大の文字サイズを計算し、大きい方を採用する。
   // 括弧付きの表記は幅を取るため、人数が多くても1列の方が大きくできることがある。
-  function chooseDayLayout(dayEntries, d, cellSize, availableHeight) {
+  function chooseDayLayout(dayEntries, d, cellSize, availableHeight, forPrint) {
     if (dayEntries.length === 0) return null;
-    const oneCol = tryLayout(dayEntries, d, 1, cellSize, availableHeight);
+    const oneCol = tryLayout(dayEntries, d, 1, cellSize, availableHeight, forPrint);
     if (dayEntries.length === 1) return oneCol;
     const sorted = dayEntries.slice().sort((a, b) => STATE_ORDER[a.states[d - 1]] - STATE_ORDER[b.states[d - 1]]);
-    const twoCol = tryLayout(sorted, d, 2, cellSize, availableHeight);
+    const twoCol = tryLayout(sorted, d, 2, cellSize, availableHeight, forPrint);
     return twoCol.fontSize > oneCol.fontSize ? twoCol : oneCol;
   }
 
-  function renderListGrid(entries, cellSizeOverride) {
+  function renderListGrid(entries, cellSizeOverride, forPrint) {
     listGrid.innerHTML = "";
     if (entries.length === 0) {
       listEmptyState.classList.remove("hidden");
@@ -640,7 +646,7 @@ const db = getFirestore(firebaseApp);
       const cell = document.createElement("div");
       cell.className = "list-cell";
       const dayEntriesRaw = entries.filter((entry) => (entry.states[d - 1] || "unset") !== "unset");
-      const layout = chooseDayLayout(dayEntriesRaw, d, cellSize, availableHeight);
+      const layout = chooseDayLayout(dayEntriesRaw, d, cellSize, availableHeight, forPrint);
       const dayNumClass = isSundayOrHoliday(year, month, d) ? " holiday" : isSaturday(year, month, d) ? " saturday" : "";
       let html = '<span class="daynum' + dayNumClass + '">' + d + "</span>";
       if (layout) {
@@ -724,7 +730,7 @@ const db = getFirestore(firebaseApp);
     const cellMM = Math.max(4, Math.min(cellFromWidthMM, cellFromHeightMM));
 
     document.documentElement.style.setProperty("--print-cell-mm", cellMM + "mm");
-    renderListGrid(lastEntries, cellMM * PX_PER_MM);
+    renderListGrid(lastEntries, cellMM * PX_PER_MM, true);
   }
 
   function restoreScreenSizing() {
