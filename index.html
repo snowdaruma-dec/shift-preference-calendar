@@ -149,7 +149,7 @@
   <div class="panel" id="panelInput">
     <div class="field-row">
       <label for="nameInput">名前</label>
-      <input id="nameInput" type="text" placeholder="例：田中" maxlength="20">
+      <input id="nameInput" type="text" placeholder="例：田中（公）" maxlength="20">
     </div>
 
     <div class="legend">
@@ -193,7 +193,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getFirestore, doc, setDoc, deleteDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmY2HqcpJTV4CRND5g7tvO__ARxjUBpjM",
@@ -336,9 +336,11 @@ const db = getFirestore(firebaseApp);
     selectedIndex = i;
     buildMonthPicker();
     applyMonthState();
+    autoRestored = false;
     loadDraft();
     sanitizeDayStates();
     render();
+    restoreFromServer();
     outputBox.classList.add("hidden");
     setMsg(msg, "");
     if (!panelList.classList.contains("hidden")) {
@@ -361,6 +363,43 @@ const db = getFirestore(firebaseApp);
       if (d && typeof d.name === "string") nameInput.value = d.name;
     } catch (e) {}
   }
+
+  // 端末内の下書きが無い・消えている場合に備え、名前が分かれば保存済みの内容を
+  // サーバーから読み込んで入力画面に復元する。手元で入力済みの内容は上書きしない。
+  let restoreSeq = 0;
+  let autoRestored = false;
+  async function restoreFromServer() {
+    const name = nameInput.value.trim();
+    if (!name || dayStates.some((s) => s !== "unset")) return;
+    const seq = ++restoreSeq;
+    const tag = monthTag;
+    try {
+      const snap = await getDoc(doc(peopleCollection, encodeURIComponent(name)));
+      if (seq !== restoreSeq || tag !== monthTag || nameInput.value.trim() !== name) return;
+      if (dayStates.some((s) => s !== "unset") || !snap.exists()) return;
+      const data = snap.data();
+      if (!Array.isArray(data.states) || data.states.length !== daysInMonth) return;
+      dayStates = data.states.slice();
+      sanitizeDayStates();
+      autoRestored = true;
+      render();
+      saveDraft();
+      setMsg(msg, name + "さんの保存済みの内容を読み込みました。", "ok");
+    } catch (e) {}
+  }
+
+  let restoreTimer = null;
+  nameInput.addEventListener("input", () => {
+    if (autoRestored) {
+      dayStates = new Array(daysInMonth).fill("unset");
+      autoRestored = false;
+      render();
+      setMsg(msg, "");
+    }
+    clearTimeout(restoreTimer);
+    restoreTimer = setTimeout(restoreFromServer, 600);
+  });
+  nameInput.addEventListener("change", restoreFromServer);
 
   function buildWeekdayRow(container) {
     container.innerHTML = "";
@@ -403,6 +442,7 @@ const db = getFirestore(firebaseApp);
             nextIdx = (nextIdx + 1) % STATES.length;
           }
           dayStates[d - 1] = STATES[nextIdx];
+          autoRestored = false;
           render();
           saveDraft();
         });
@@ -464,6 +504,9 @@ const db = getFirestore(firebaseApp);
 
   document.getElementById("clearBtn").addEventListener("click", async () => {
     const name = nameInput.value.trim();
+    restoreSeq++;
+    clearTimeout(restoreTimer);
+    autoRestored = false;
     dayStates = new Array(daysInMonth).fill("unset");
     render();
     outputBox.classList.add("hidden");
@@ -747,6 +790,7 @@ const db = getFirestore(firebaseApp);
   loadDraft();
   sanitizeDayStates();
   render();
+  restoreFromServer();
 })();
 </script>
 
