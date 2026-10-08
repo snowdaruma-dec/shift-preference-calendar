@@ -38,6 +38,7 @@
   .sheet-head { position: relative; padding: 18px 20px; border-bottom: 1px solid var(--paper-line); }
   .title { font-family: "Yomogi", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif; font-size: 20px; margin: 0; padding-right: 36px; line-height: 1.3; white-space: normal; overflow: hidden; text-overflow: ellipsis; }
   .title .team { display: inline-block; white-space: nowrap; }
+  @media (max-width: 400px) { .title { font-size: 17px; } }
 
   .month-picker { display: flex; gap: 6px; overflow-x: auto; padding: 10px 20px; border-bottom: 1px solid var(--paper-line); background: var(--off); -webkit-overflow-scrolling: touch; }
   .month-btn { flex: 0 0 auto; padding: 7px 13px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink-soft); background: #fff; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; white-space: nowrap; }
