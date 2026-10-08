@@ -219,9 +219,11 @@ const db = getFirestore(firebaseApp);
   const params = new URLSearchParams(location.search);
   const groupId = (params.get("g") || "common").trim();
   const MONTH_COUNT = 6;
-  // 季節の背景色と絵文字は、現時点ではグループ7のみで有効にする。
+  // 季節の背景色と絵文字。true で全グループ有効。false に戻すと
+  // SEASON_THEME_GROUPS に入れたグループ（現在は7のみ）だけで有効になる。
+  const SEASON_THEME_ALL = true;
   const SEASON_THEME_GROUPS = new Set(["7"]);
-  const seasonThemeEnabled = SEASON_THEME_GROUPS.has(groupId);
+  const seasonThemeEnabled = SEASON_THEME_ALL || SEASON_THEME_GROUPS.has(groupId);
 
   const now = new Date();
   const monthsAhead = now.getDate() >= 20 ? 2 : 1;
