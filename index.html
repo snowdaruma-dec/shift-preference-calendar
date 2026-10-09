@@ -144,6 +144,8 @@
     <span class="season-icon-corner" id="seasonIconCorner"></span>
   </div>
 
+  <p class="line-hint hidden" id="accessBanner" style="margin:0;border-radius:0;border-width:0 0 1px 0;">このURLでは保存・表示ができません。チームのLINEなどで案内された新しいURL（またはQRコード）からお開きください。</p>
+
   <div class="month-picker" id="monthPicker"></div>
 
   <div class="tabs">
@@ -204,7 +206,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, getDocs, collection, query, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmY2HqcpJTV4CRND5g7tvO__ARxjUBpjM",
@@ -220,6 +222,8 @@ const db = getFirestore(firebaseApp);
 (function() {
   const params = new URLSearchParams(location.search);
   const groupId = (params.get("g") || "common").trim();
+  // URLの末尾に付けた合言葉（例: 6階-k8x2q9m4）は、画面の表示名からは取り除く。
+  const displayGroupName = groupId.replace(/-[a-z0-9]{8,}$/, "");
   const MONTH_COUNT = 6;
   // 季節の背景色と絵文字。true で全グループ有効。false に戻すと
   // SEASON_THEME_GROUPS に入れたグループ（現在は7のみ）だけで有効になる。
@@ -339,7 +343,7 @@ const db = getFirestore(firebaseApp);
     pageTitle.textContent = year + "年" + (month + 1) + "月の勤務希望　";
     const teamSpan = document.createElement("span");
     teamSpan.className = "team";
-    teamSpan.textContent = groupId + "チーム";
+    teamSpan.textContent = displayGroupName + "チーム";
     pageTitle.appendChild(teamSpan);
     if (seasonThemeEnabled) {
       const season = seasonForMonth(month);
@@ -808,6 +812,19 @@ const db = getFirestore(firebaseApp);
   sanitizeDayStates();
   render();
   restoreFromServer();
+
+  // 古いURL・間違ったURLだと、サーバー側のルールが読み取りを断る。入力前に気づけるよう案内を出す。
+  (async function probeAccess() {
+    try {
+      await getDocs(query(peopleCollection, limit(1)));
+    } catch (e) {
+      if (e && e.code === "permission-denied") {
+        document.getElementById("accessBanner").classList.remove("hidden");
+        document.getElementById("submitBtn").disabled = true;
+        document.getElementById("clearBtn").disabled = true;
+      }
+    }
+  })();
 })();
 </script>
 
