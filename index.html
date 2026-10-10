@@ -229,7 +229,9 @@ const db = getFirestore(firebaseApp);
   // SEASON_THEME_GROUPS に入れたグループ（現在は7のみ）だけで有効になる。
   const SEASON_THEME_ALL = true;
   const SEASON_THEME_GROUPS = new Set(["7"]);
-  const seasonThemeEnabled = SEASON_THEME_ALL || SEASON_THEME_GROUPS.has(groupId);
+  // 合言葉つきの新URLへの移行期間中、見分けやすいよう古いURLは飾りなしにしておく。
+  const SEASON_THEME_OFF_GROUPS = new Set(["6階", "4階"]);
+  const seasonThemeEnabled = (SEASON_THEME_ALL || SEASON_THEME_GROUPS.has(groupId)) && !SEASON_THEME_OFF_GROUPS.has(groupId);
 
   const now = new Date();
   const monthsAhead = now.getDate() >= 20 ? 2 : 1;
