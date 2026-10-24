@@ -836,7 +836,8 @@ const db = getFirestore(firebaseApp);
     const blob = new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "希望_" + displayGroupName + "_" + monthTag + ".csv";
+    // 試験用グループ（zz-test-4階 など）は、エクセル側でチーム名が合うように頭の zz-test- を外す
+    a.download = "希望_" + displayGroupName.replace(/^zz-test-/, "") + "_" + monthTag + ".csv";
     document.body.appendChild(a);
     a.click();
     a.remove();
