@@ -51,10 +51,15 @@
   .panel.hidden { display: none; }
 
   .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .field-row label { font-size: 13px; color: var(--ink-soft); width: 44px; flex-shrink: 0; }
+  .field-row label { font-size: 13px; color: var(--ink-soft); width: 58px; flex-shrink: 0; }
+  .pin-input { flex: 0 1 140px !important; letter-spacing: 0.25em; -webkit-text-security: disc; }
+  .admin-box { margin-top: 18px; padding: 12px; border: 1px dashed var(--line); border-radius: 4px; background: var(--off); display: flex; flex-direction: column; gap: 8px; }
+  .admin-box.hidden { display: none; }
+  .admin-box input { font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .admin-title { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
   .field-row input { flex: 1; font-family: inherit; font-size: 14.5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--off); color: var(--ink); }
 
-  .name-note { margin: -4px 0 10px 54px; font-size: 11.5px; line-height: 1.5; color: var(--ink-soft); }
+  .name-note { margin: -4px 0 10px 68px; font-size: 11.5px; line-height: 1.5; color: var(--ink-soft); }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0 14px; font-size: 12px; color: var(--ink-soft); }
   .legend span { display: flex; align-items: center; gap: 5px; }
   .swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
@@ -134,7 +139,7 @@
   @media print {
     body { background: #fff; }
     .sheet { border: none; max-width: 100%; break-inside: avoid; }
-    .test-banner, .month-picker, .tabs, .refresh-btn, .print-btn, .export-btn, .line-hint, #listMsg, .field-row, .name-note, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
+    .test-banner, .month-picker, .tabs, .refresh-btn, .print-btn, .export-btn, .line-hint, #listMsg, .field-row, .name-note, .admin-box, .legend, .actions, .output-box, .share, #inputMsg { display: none !important; }
     #listCalendarGrid, #listWeekdayRow { grid-template-columns: repeat(7, var(--print-cell-mm, 1fr)); justify-content: start; }
   }
 </style>
@@ -163,6 +168,11 @@
       <input id="nameInput" type="text" placeholder="例：田中（苗字のみ）" maxlength="20">
     </div>
     <p class="name-note">※同姓の方がいる場合は、名前も入れてください</p>
+    <div class="field-row">
+      <label for="pinInput">暗証番号</label>
+      <input id="pinInput" class="pin-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="4桁の数字">
+    </div>
+    <p class="name-note">※初めての方は、好きな4桁の数字を決めて入れてください。次回から同じ番号で、保存した内容の確認・変更ができます。</p>
 
     <div class="legend">
       <span><span class="swatch" style="background:var(--day-off)"></span>公休</span>
@@ -193,8 +203,17 @@
         <li>「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。</li>
         <li>日曜と第1・第3土曜は有休を選べません。</li>
         <li>年末年始(12/29〜1/3)は別に勤務表を作るため入力できません(縞模様のマス)。</li>
-        <li>入力画面を開き直して休み希望が消えていても、保存済みの方は名前を入力すると、その月の保存した内容が自動で表示されます（名前は保存したときと同じ表記で入力してください）。</li>
+        <li>入力画面を開き直して休み希望が消えていても、保存済みの方は名前と暗証番号を入力すると、その月の保存した内容が自動で表示されます（名前は保存したときと同じ表記で入力してください）。</li>
+        <li>暗証番号は、ご自身の入力を他の人に変更されないための番号です。一度入れたスマホでは、次回から自動で入ります。忘れたときは、管理者にお知らせください。</li>
       </ul>
+    </div>
+
+    <div class="admin-box hidden" id="adminBox">
+      <p class="admin-title">管理者用：暗証番号のリセット</p>
+      <input id="adminPass" type="text" autocomplete="off" placeholder="管理者の合言葉">
+      <input id="adminTarget" type="text" autocomplete="off" placeholder="リセットする人の名前">
+      <button class="btn ghost" id="adminResetBtn">この名前の暗証番号を、表示中の6か月分すべてリセット</button>
+      <div class="msg" id="adminMsg"></div>
     </div>
   </div>
 
@@ -440,17 +459,57 @@ const db = getFirestore(firebaseApp);
   // サーバーから読み込んで入力画面に復元する。手元で入力済みの内容は上書きしない。
   let restoreSeq = 0;
   let autoRestored = false;
+
+  // 暗証番号は「他の人が間違って自分の分を変更・消去しない」ための番号。
+  // 保存データには番号そのものではなく、名前と組み合わせた暗号化値（pinHash）だけを入れる。
+  const pinInput = document.getElementById("pinInput");
+  const ADMIN_PASS_HASH = "4fe67147697f39a1e5703364f1039cb4b1548e427916fb278d422e1a8e2a6d19";
+  async function sha256Hex(text) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  const hashPin = (name, pin) => sha256Hex("shift-pin:" + name + ":" + pin);
+  const validPin = (p) => /^[0-9]{4}$/.test(p);
+  function rememberPin(name, pin) { try { localStorage.setItem("shiftPin:" + name, pin); } catch (e) {} }
+  function recallPin(name) { try { return localStorage.getItem("shiftPin:" + name) || ""; } catch (e) { return ""; } }
+
+  // この端末が覚えている番号を、名前に合わせて入力欄へ入れる（本人が手で入れた番号は消さない）。
+  let pinAutofilled = false;
+  function applyRememberedPin(name) {
+    if (pinInput.value.trim() && !pinAutofilled) return;
+    const remembered = name ? recallPin(name) : "";
+    pinInput.value = remembered;
+    pinAutofilled = !!remembered;
+  }
+
+  async function readEntry(name) {
+    const snap = await getDoc(doc(peopleCollection, encodeURIComponent(name)));
+    if (!snap.exists()) return { exists: false };
+    const data = snap.data();
+    return { exists: true, data, hasPin: typeof data.pinHash === "string" && data.pinHash.length > 0 };
+  }
+
   async function restoreFromServer() {
     const name = nameInput.value.trim();
     if (!name || dayStates.some((s) => s !== "unset")) return;
     const seq = ++restoreSeq;
     const tag = monthTag;
     try {
-      const snap = await getDoc(doc(peopleCollection, encodeURIComponent(name)));
+      const entry = await readEntry(name);
       if (seq !== restoreSeq || tag !== monthTag || nameInput.value.trim() !== name) return;
-      if (dayStates.some((s) => s !== "unset") || !snap.exists()) return;
-      const data = snap.data();
+      if (dayStates.some((s) => s !== "unset") || !entry.exists) return;
+      const data = entry.data;
       if (!Array.isArray(data.states) || data.states.length !== daysInMonth) return;
+      if (entry.hasPin) {
+        const pin = pinInput.value.trim();
+        const ok = validPin(pin) && (await hashPin(name, pin)) === data.pinHash;
+        if (seq !== restoreSeq || tag !== monthTag || nameInput.value.trim() !== name) return;
+        if (!ok) {
+          setMsg(msg, "この名前は暗証番号で守られています。暗証番号（4桁）を入れると、保存した内容が表示されます。");
+          return;
+        }
+        if (dayStates.some((s) => s !== "unset")) return;
+      }
       dayStates = data.states.slice();
       sanitizeDayStates();
       autoRestored = true;
@@ -466,12 +525,22 @@ const db = getFirestore(firebaseApp);
       dayStates = new Array(daysInMonth).fill("unset");
       autoRestored = false;
       render();
-      setMsg(msg, "");
     }
+    setMsg(msg, "");
+    applyRememberedPin(nameInput.value.trim());
     clearTimeout(restoreTimer);
     restoreTimer = setTimeout(restoreFromServer, 600);
   });
   nameInput.addEventListener("change", restoreFromServer);
+  pinInput.addEventListener("input", () => {
+    pinInput.value = pinInput.value
+      .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+      .replace(/[^0-9]/g, "")
+      .slice(0, 4);
+    pinAutofilled = false;
+    clearTimeout(restoreTimer);
+    restoreTimer = setTimeout(restoreFromServer, 300);
+  });
 
   function buildWeekdayRow(container) {
     container.innerHTML = "";
@@ -554,14 +623,29 @@ const db = getFirestore(firebaseApp);
       if (state === "unset") continue;
       pairs.push(d + STATE_LABEL[state]);
     }
+    const pin = pinInput.value.trim();
+    if (!validPin(pin)) {
+      setMsg(msg, "暗証番号（4桁の数字）を入れてください。初めての方は、好きな4桁を決めてください。", "err");
+      outputBox.classList.add("hidden");
+      return;
+    }
     setMsg(msg, "保存しています…");
     try {
       const personDocId = encodeURIComponent(name);
+      const entry = await readEntry(name);
+      const pinHash = await hashPin(name, pin);
+      if (entry.exists && entry.hasPin && entry.data.pinHash !== pinHash) {
+        setMsg(msg, "暗証番号が違います。保存していません。", "err");
+        outputBox.classList.add("hidden");
+        return;
+      }
       await setDoc(doc(peopleCollection, personDocId), {
         name: name,
         states: dayStates,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        pinHash: pinHash
       });
+      rememberPin(name, pin);
       const text = pairs.length > 0 ? (name + " " + monthTag + ": " + pairs.join(" ")) : (name + " " + monthTag + ": 希望なし");
       submitText.value = text;
       outputBox.classList.remove("hidden");
@@ -576,6 +660,21 @@ const db = getFirestore(firebaseApp);
     const name = nameInput.value.trim();
     restoreSeq++;
     clearTimeout(restoreTimer);
+    if (name) {
+      try {
+        const entry = await readEntry(name);
+        if (entry.exists && entry.hasPin) {
+          const pin = pinInput.value.trim();
+          if (!validPin(pin) || (await hashPin(name, pin)) !== entry.data.pinHash) {
+            setMsg(msg, "暗証番号が違うため、消去できません。", "err");
+            return;
+          }
+        }
+      } catch (e) {
+        setMsg(msg, "確認に失敗しました。通信環境を確認してもう一度お試しください。", "err");
+        return;
+      }
+    }
     autoRestored = false;
     dayStates = new Array(daysInMonth).fill("unset");
     render();
@@ -893,7 +992,37 @@ const db = getFirestore(firebaseApp);
   loadDraft();
   sanitizeDayStates();
   render();
+  applyRememberedPin(nameInput.value.trim());
   restoreFromServer();
+
+  // 管理者用の欄: URLに &admin=1 を付けたときだけ表示。合言葉が合えば、保存済みの暗証番号を解除する（データは消さない）。
+  if (params.get("admin") === "1") document.getElementById("adminBox").classList.remove("hidden");
+  document.getElementById("adminResetBtn").addEventListener("click", async () => {
+    const adminMsg = document.getElementById("adminMsg");
+    const pass = document.getElementById("adminPass").value.trim();
+    const target = document.getElementById("adminTarget").value.trim();
+    if (!target) { setMsg(adminMsg, "リセットする人の名前を入れてください。", "err"); return; }
+    if ((await sha256Hex("shift-admin:" + pass)) !== ADMIN_PASS_HASH) { setMsg(adminMsg, "管理者の合言葉が違います。", "err"); return; }
+    setMsg(adminMsg, "リセットしています…");
+    try {
+      let reset = 0, alreadyOpen = 0;
+      for (const m of months) {
+        const tag = m.year + "-" + String(m.month + 1).padStart(2, "0");
+        const ref = doc(collection(db, "groups", groupId, "months", tag, "people"), encodeURIComponent(target));
+        const snap = await getDoc(ref);
+        if (!snap.exists()) continue;
+        const data = snap.data();
+        if (typeof data.pinHash !== "string") { alreadyOpen++; continue; }
+        await setDoc(ref, { name: data.name, states: data.states, updatedAt: serverTimestamp() });
+        reset++;
+      }
+      if (reset > 0) setMsg(adminMsg, target + "さんの暗証番号を" + reset + "か月分リセットしました。本人は次の保存で、新しい番号を決められます。", "ok");
+      else if (alreadyOpen > 0) setMsg(adminMsg, "この名前の暗証番号は、すでに未設定です。", "err");
+      else setMsg(adminMsg, "この名前の保存データが見つかりません。", "err");
+    } catch (e) {
+      setMsg(adminMsg, "リセットに失敗しました。通信環境を確認してもう一度お試しください。", "err");
+    }
+  });
 
   // 古いURL・間違ったURLだと、サーバー側のルールが読み取りを断る。入力前に気づけるよう案内を出す。
   (async function probeAccess() {
