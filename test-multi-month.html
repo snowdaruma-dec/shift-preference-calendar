@@ -52,7 +52,8 @@
 
   .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .field-row label { font-size: 13px; color: var(--ink-soft); width: 58px; flex-shrink: 0; }
-  .pin-input { flex: 0 1 140px !important; letter-spacing: 0.25em; -webkit-text-security: disc; }
+  .pin-input { flex: 0 0 130px !important; width: 130px; min-width: 0; letter-spacing: 0.25em; -webkit-text-security: disc; }
+  .pin-input::placeholder { letter-spacing: normal; }
   .admin-box { margin-top: 18px; padding: 12px; border: 1px dashed var(--line); border-radius: 4px; background: var(--off); display: flex; flex-direction: column; gap: 8px; }
   .admin-box.hidden { display: none; }
   .admin-box input { font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
