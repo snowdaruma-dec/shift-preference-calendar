@@ -188,7 +188,7 @@
       <ul>
         <li>日付をタップすると 公休→有休→出勤→出張→特別休暇→未定 の順に切り替わります。</li>
         <li>「保存する」を押すと自動的に記録され、一覧タブでその月・グループ全員分の希望が確認できます。</li>
-        <li>日曜と第1・第3土曜は有休を選べません。</li>
+        <li>日曜・祝日・第1・第3土曜は有休を選べません。</li>
         <li>年末年始(12/29〜1/3)は別に勤務表を作るため入力できません(縞模様のマス)。</li>
         <li>入力画面を開き直して休み希望が消えていても、保存済みの方は名前を入力すると、その月の保存した内容が自動で表示されます（名前は保存したときと同じ表記で入力してください）。</li>
       </ul>
@@ -284,6 +284,7 @@ const db = getFirestore(firebaseApp);
   function isPaidRestricted(day) {
     const dow = new Date(year, month, day).getDay();
     if (dow === 0) return true;
+    if (getHolidayName(year, month, day)) return true;
     if (dow === 6) {
       const nth = Math.ceil(day / 7);
       return nth === 1 || nth === 3;
